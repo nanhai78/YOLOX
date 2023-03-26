@@ -4,7 +4,7 @@
 
 from torch import nn
 
-from .network_blocks import BaseConv, CSPLayer, DWConv, Focus, ResLayer, SPPBottleneck
+from .network_blocks import BaseConv, CSPLayer, DWConv, Focus, ResLayer, SPPBottleneck, CSPLayer_BoT
 
 
 class Darknet(nn.Module):
@@ -177,3 +177,30 @@ class CSPDarknet(nn.Module):
         x = self.dark5(x)
         outputs["dark5"] = x
         return {k: v for k, v in outputs.items() if k in self.out_features}
+
+
+class CSPDarknet_BoT(CSPDarknet):
+    def __init__(
+            self,
+            dep_mul,
+            wid_mul,
+            out_features=("dark3", "dark4", "dark5"),
+            depthwise=False,
+            act="silu",
+    ):
+        assert out_features, "please provide output features of Darknet"
+        super(CSPDarknet_BoT, self).__init__(dep_mul, wid_mul, out_features, depthwise, act)
+        Conv = DWConv if depthwise else BaseConv
+
+        base_channels = int(wid_mul * 64)  # 64
+        base_depth = max(round(dep_mul * 3), 1)  # 3
+
+        self.dark5 = nn.Sequential(
+            Conv(base_channels * 8, base_channels * 16, 3, 2, act=act),
+            SPPBottleneck(base_channels * 16, base_channels * 16, activation=act),
+            CSPLayer_BoT(  # replaced CSPBoT
+                base_channels * 16,
+                base_channels * 16,
+                n=base_depth
+            )
+        )

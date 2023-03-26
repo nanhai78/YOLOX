@@ -26,11 +26,19 @@ def get_activation(name="silu", inplace=True):
     return module
 
 
+def channel_shuffle(x, groups=2):  ##shuffle channel
+    # RESHAPE----->transpose------->Flatten
+    B, C, H, W = x.size()
+    out = x.view(B, groups, C // groups, H, W).permute(0, 2, 1, 3, 4).contiguous()
+    out = out.view(B, C, H, W)
+    return out
+
+
 class BaseConv(nn.Module):
     """A Conv2d -> Batchnorm -> silu/leaky relu block"""
 
     def __init__(
-        self, in_channels, out_channels, ksize, stride, groups=1, bias=False, act="silu"
+            self, in_channels, out_channels, ksize, stride, groups=1, bias=False, act="silu"
     ):
         super().__init__()
         # same padding
@@ -79,13 +87,13 @@ class DWConv(nn.Module):
 class Bottleneck(nn.Module):
     # Standard bottleneck
     def __init__(
-        self,
-        in_channels,
-        out_channels,
-        shortcut=True,
-        expansion=0.5,
-        depthwise=False,
-        act="silu",
+            self,
+            in_channels,
+            out_channels,
+            shortcut=True,
+            expansion=0.5,
+            depthwise=False,
+            act="silu",
     ):
         super().__init__()
         hidden_channels = int(out_channels * expansion)
@@ -123,7 +131,7 @@ class SPPBottleneck(nn.Module):
     """Spatial pyramid pooling layer used in YOLOv3-SPP"""
 
     def __init__(
-        self, in_channels, out_channels, kernel_sizes=(5, 9, 13), activation="silu"
+            self, in_channels, out_channels, kernel_sizes=(5, 9, 13), activation="silu"
     ):
         super().__init__()
         hidden_channels = in_channels // 2
@@ -148,14 +156,14 @@ class CSPLayer(nn.Module):
     """C3 in yolov5, CSP Bottleneck with 3 convolutions"""
 
     def __init__(
-        self,
-        in_channels,
-        out_channels,
-        n=1,
-        shortcut=True,
-        expansion=0.5,
-        depthwise=False,
-        act="silu",
+            self,
+            in_channels,
+            out_channels,
+            n=1,
+            shortcut=True,
+            expansion=0.5,
+            depthwise=False,
+            act="silu",
     ):
         """
         Args:
@@ -208,3 +216,165 @@ class Focus(nn.Module):
             dim=1,
         )
         return self.conv(x)
+
+
+# --------------------------------------------------------------------
+"""
+    add some new module
+"""
+
+
+class ChannelAttention(nn.Module):
+    # Channel-attention module https://github.com/open-mmlab/mmdetection/tree/v3.0.0rc1/configs/rtmdet
+    def __init__(self, channels: int) -> None:
+        super().__init__()
+        self.pool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Conv2d(channels, channels, 1, 1, 0, bias=True)
+        self.act = nn.Sigmoid()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x * self.act(self.fc(self.pool(x)))
+
+
+class SpatialAttention(nn.Module):
+    # Spatial-attention module
+    def __init__(self, kernel_size=7):
+        super().__init__()
+        assert kernel_size in (3, 7), 'kernel size must be 3 or 7'
+        padding = 3 if kernel_size == 7 else 1
+        self.cv1 = nn.Conv2d(2, 1, kernel_size, padding=padding, bias=False)
+        self.act = nn.Sigmoid()
+
+    def forward(self, x):
+        return x * self.act(self.cv1(torch.cat([torch.mean(x, 1, keepdim=True), torch.max(x, 1, keepdim=True)[0]], 1)))
+
+
+class CBAM(nn.Module):
+    # Convolutional Block Attention Module
+    def __init__(self, c1, kernel_size=7):  # ch_in, kernels
+        super().__init__()
+        self.channel_attention = ChannelAttention(c1)
+        self.spatial_attention = SpatialAttention(kernel_size)
+
+    def forward(self, x):
+        return self.spatial_attention(self.channel_attention(x))
+
+
+class MHSA(nn.Module):
+    def __init__(self, n_dims, width=14, height=14, heads=4):
+        super(MHSA, self).__init__()
+        self.heads = heads
+
+        self.query = nn.Conv2d(n_dims, n_dims, kernel_size=1)
+        self.key = nn.Conv2d(n_dims, n_dims, kernel_size=1)
+        self.value = nn.Conv2d(n_dims, n_dims, kernel_size=1)
+
+        self.rel_h = nn.Parameter(torch.randn([1, heads, n_dims // heads, 1, height]), requires_grad=True)
+        self.rel_w = nn.Parameter(torch.randn([1, heads, n_dims // heads, width, 1]), requires_grad=True)
+
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x):
+        n_batch, C, width, height = x.size()
+        q = self.query(x).view(n_batch, self.heads, C // self.heads, -1)
+        k = self.key(x).view(n_batch, self.heads, C // self.heads, -1)
+        v = self.value(x).view(n_batch, self.heads, C // self.heads, -1)
+
+        content_content = torch.matmul(q.permute(0, 1, 3, 2), k)
+
+        # 位置编码
+        content_position = (self.rel_h + self.rel_w).view(1, self.heads, C // self.heads, -1).permute(0, 1, 3, 2)
+        content_position = torch.matmul(content_position, q)
+
+        energy = content_content + content_position
+        attention = self.softmax(energy)
+
+        out = torch.matmul(v, attention.permute(0, 1, 3, 2))
+        out = out.view(n_batch, C, width, height)
+
+        return out
+
+
+class Bottleneck_Transfomer(nn.Module):
+    def __init__(self, c1, c2, heads=4, resolution=None, shortcut=False):
+        super(Bottleneck_Transfomer, self).__init__()
+        self.cv1 = BaseConv(c1, c2, 1, 1)
+        self.cv2 = nn.Sequential(
+            MHSA(c2, width=int(resolution[0]), height=int(resolution[1]), heads=heads),
+            nn.BatchNorm2d(c2),
+            SiLU()
+        )
+        self.shortcut = shortcut and c1 == c2
+
+    def forward(self, x):
+        return x + self.cv2(self.cv1(x)) if self.shortcut else self.cv2(self.cv1(x))
+
+
+class CSPLayer_BoT(CSPLayer):
+    # CSP Bottleneck with Transformer
+    def __init__(
+            self,
+            in_channels,
+            out_channels,
+            n=1,
+            shortcut=True,
+            expansion=0.5,
+            depthwise=False,
+            act="silu",
+            heads=4,
+            resolution=(24, 13)  # 特征的高和宽
+    ):
+        super(CSPLayer_BoT, self).__init__(in_channels, out_channels, n, shortcut, expansion, depthwise, act)
+        hidden_channels = int(out_channels * expansion)
+        self.m = nn.Sequential(
+            *(Bottleneck_Transfomer(hidden_channels, hidden_channels, heads=heads, resolution=resolution, shortcut=shortcut)
+              for _ in range(n))
+        )
+
+
+class GAM_Attention(nn.Module):
+    # https://paperswithcode.com/paper/global-attention-mechanism-retain-information
+    """
+    global attention module implement of pytorch
+    """
+
+    def __init__(self, c1, c2, group=True, rate=4):
+        super(GAM_Attention, self).__init__()
+        self.group = group
+        self.rate = rate
+
+        self.channel_attention = nn.Sequential(
+            nn.Linear(c1, int(c1 / rate)),
+            nn.ReLU(inplace=True),
+            nn.Linear(int(c1 / rate), c1)
+        )
+        self.spatial_attention0 = nn.Sequential(
+            nn.Conv2d(c1, c1 // rate, kernel_size=7, padding=3, groups=rate) if group else nn.Conv2d(c1, int(c1 / rate),
+                                                                                                     kernel_size=7,
+                                                                                                     padding=3),
+            nn.BatchNorm2d(int(c1 / rate)),
+            nn.ReLU(inplace=True),
+
+        )
+        self.spatial_attention1 = nn.Sequential(
+            nn.Conv2d(c1 // rate, c2, kernel_size=7, padding=3, groups=rate) if group else nn.Conv2d(int(c1 / rate), c2,
+                                                                                                     kernel_size=7,
+                                                                                                     padding=3),
+            nn.BatchNorm2d(c2)
+        )
+
+    def forward(self, x):
+        # channel attention
+        b, c, h, w = x.shape
+        x_permute = x.permute(0, 2, 3, 1).view(b, -1, c)
+        x_att_permute = self.channel_attention(x_permute).view(b, h, w, c)
+        x_channel_att = x_att_permute.permute(0, 3, 1, 2)
+        x = x * x_channel_att
+        # spatial_attention
+        x_spatial_att = self.spatial_attention0(x)
+        x_spatial_att = self.spatial_attention1(x_spatial_att).sigmoid()
+        # if group conv, shuffle in the end
+        if self.group:
+            x_spatial_att = channel_shuffle(x_spatial_att, self.rate)
+        out = x * x_spatial_att
+        return out

@@ -7,6 +7,7 @@
 import os
 import pickle
 import xml.etree.ElementTree as ET
+from yolox.data.datasets.voc_classes import VOC_CLASSES
 
 import numpy as np
 
@@ -16,6 +17,8 @@ def parse_rec(filename):
     tree = ET.parse(filename)
     objects = []
     for obj in tree.findall("object"):
+        if obj.find("name").text not in VOC_CLASSES:
+            continue
         obj_struct = {}
         obj_struct["name"] = obj.find("name").text
         obj_struct["pose"] = obj.find("pose").text

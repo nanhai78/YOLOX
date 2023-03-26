@@ -30,11 +30,11 @@ class Exp(BaseExp):
         # ---------------- dataloader config ---------------- #
         # set worker to 4 for shorter dataloader init time
         # If your training process cost many memory, reduce this value.
-        self.data_num_workers = 4
-        self.input_size = (640, 640)  # (height, width)
+        self.data_num_workers = 8
+        self.input_size = (768, 416)  # (height, width)
         # Actual multiscale ranges: [640 - 5 * 32, 640 + 5 * 32].
         # To disable multiscale training, set the value to 0.
-        self.multiscale_range = 5
+        self.multiscale_range = 0
         # You can uncomment this line to specify a multiscale range
         # self.random_size = (14, 26)
         # dir of dataset images, if data_dir is None, this project will use `datasets` dir
@@ -59,7 +59,7 @@ class Exp(BaseExp):
         self.degrees = 10.0
         # translate range, for example, if set to 0.1, the true range is (-0.1, 0.1)
         self.translate = 0.1
-        self.mosaic_scale = (0.1, 2)
+        self.mosaic_scale = (0.25, 2)
         # apply mixup aug or not
         self.enable_mixup = True
         self.mixup_scale = (0.5, 1.5)
@@ -70,7 +70,7 @@ class Exp(BaseExp):
         # epoch number used for warmup
         self.warmup_epochs = 5
         # max training epoch
-        self.max_epoch = 300
+        self.max_epoch = 105
         # minimum learning rate during warmup
         self.warmup_lr = 0
         self.min_lr_ratio = 0.05
@@ -92,7 +92,7 @@ class Exp(BaseExp):
         self.print_interval = 10
         # eval period in epoch, for example,
         # if set to 1, model will be evaluate after every epoch.
-        self.eval_interval = 10
+        self.eval_interval = 5
         # save history checkpoint or not.
         # If set to False, yolox will only save latest and best ckpt.
         self.save_history_ckpt = True
@@ -101,15 +101,15 @@ class Exp(BaseExp):
 
         # -----------------  testing config ------------------ #
         # output image size during evaluation/test
-        self.test_size = (640, 640)
+        self.test_size = (768, 416)
         # confidence threshold during evaluation/test,
         # boxes whose scores are less than test_conf will be filtered
-        self.test_conf = 0.01
+        self.test_conf = 0.001
         # nms threshold
         self.nmsthre = 0.65
 
     def get_model(self):
-        from yolox.models import YOLOX, YOLOPAFPN, YOLOXHead
+        from yolox.models import YOLOX, YOLOPAFPN_P2, YOLOXHead
 
         def init_yolo(M):
             for m in M.modules():
@@ -118,9 +118,10 @@ class Exp(BaseExp):
                     m.momentum = 0.03
 
         if getattr(self, "model", None) is None:
-            in_channels = [256, 512, 1024]
-            backbone = YOLOPAFPN(self.depth, self.width, in_channels=in_channels, act=self.act)
-            head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels, act=self.act)
+            in_channels = [256, 256, 512]  # in channels for head
+            strides = [4, 8, 16]  # p2 p3 p4
+            backbone = YOLOPAFPN_P2(self.depth, self.width, act=self.act)
+            head = YOLOXHead(self.num_classes, self.width, strides=strides, in_channels=in_channels, act=self.act)
             self.model = YOLOX(backbone, head)
 
         self.model.apply(init_yolo)

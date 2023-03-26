@@ -1,21 +1,9 @@
 # Updates
 
-1. add P2 
-
-增加用于小目标和微小目标的检测层P2，去除了检测大目标的P5
-
-2. Bottleneck Transformer
-
-在主干网络里面的最后一层添加了Bottleneck Transformer
-
-3. TTA
-
-测试时采用数据增强
-
-4. 注意力机制
-
-引入了两种注意力机制,GAM和CBAM
-
+- [x] add P2
+- [x] add 注意力机制
+- [x] add Bottleneck Transformer
+- [x] add TTA
 
 # 代码修改处
 1. yolox_base.py

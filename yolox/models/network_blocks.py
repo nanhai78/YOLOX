@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 # Copyright (c) Megvii Inc. All rights reserved.
+import math
 
 import torch
 import torch.nn as nn
@@ -401,10 +402,10 @@ class GhostBottleneck(nn.Module):
         c_ = c2 // 2
         self.conv = nn.Sequential(
             GhostConv(c1, c_, 1, 1),  # pw
-            DWConv(c_, c_, k, s, act=act) if s == 2 else nn.Identity(),  # dw
+            DWConv_(c_, c_, k, s, act=act) if s == 2 else nn.Identity(),  # dw
             GhostConv(c_, c2, 1, 1, act=act))  # pw-linear
-        self.shortcut = nn.Sequential(DWConv(c1, c1, k, s, act=act), BaseConv(c1, c2, 1, 1,
-                                                                              act=act)) if s == 2 else nn.Identity()
+        self.shortcut = nn.Sequential(DWConv_(c1, c1, k, s, act=act), BaseConv(c1, c2, 1, 1,
+                                                                               act=act)) if s == 2 else nn.Identity()
 
     def forward(self, x):
         return self.conv(x) + self.shortcut(x)
@@ -416,3 +417,9 @@ class C3Ghost(CSPLayer):
         super().__init__(c1, c2, n, shortcut, e, depthwise)
         c_ = int(c2 * e)  # hidden channels
         self.m = nn.Sequential(*(GhostBottleneck(c_, c_) for _ in range(n)))
+
+
+class DWConv_(BaseConv):
+    def __init__(self, c1, c2, ksize, stride, bias=False, act="silu"):
+        super(DWConv_, self).__init__(c1, c2, ksize, stride, groups=math.gcd(c1, c2), bias=bias, act=act)
+        pad = (ksize - 1) // 2

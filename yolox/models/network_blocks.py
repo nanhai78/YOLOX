@@ -26,7 +26,7 @@ def get_activation(name="silu", inplace=True):
     return module
 
 
-def channel_shuffle(x, groups=2):  ##shuffle channel
+def channel_shuffle(x, groups=2):  # shuffle channel
     # RESHAPE----->transpose------->Flatten
     B, C, H, W = x.size()
     out = x.view(B, groups, C // groups, H, W).permute(0, 2, 1, 3, 4).contiguous()
@@ -110,7 +110,7 @@ class Bottleneck(nn.Module):
 
 
 class ResLayer(nn.Module):
-    "Residual layer with `in_channels` inputs."
+    """Residual layer with `in_channels` inputs."""
 
     def __init__(self, in_channels: int):
         super().__init__()
@@ -218,10 +218,7 @@ class Focus(nn.Module):
         return self.conv(x)
 
 
-# --------------------------------------------------------------------
-"""
-    add some new module
-"""
+# -----------------------some new module---------------------------------------------
 
 
 class ChannelAttention(nn.Module):
@@ -295,9 +292,9 @@ class MHSA(nn.Module):
         return out
 
 
-class Bottleneck_Transfomer(nn.Module):
+class Bottleneck_Transformer(nn.Module):
     def __init__(self, c1, c2, heads=4, resolution=None, shortcut=False):
-        super(Bottleneck_Transfomer, self).__init__()
+        super(Bottleneck_Transformer, self).__init__()
         self.cv1 = BaseConv(c1, c2, 1, 1)
         self.cv2 = nn.Sequential(
             MHSA(c2, width=int(resolution[0]), height=int(resolution[1]), heads=heads),
@@ -327,7 +324,8 @@ class CSPLayer_BoT(CSPLayer):
         super(CSPLayer_BoT, self).__init__(in_channels, out_channels, n, shortcut, expansion, depthwise, act)
         hidden_channels = int(out_channels * expansion)
         self.m = nn.Sequential(
-            *(Bottleneck_Transfomer(hidden_channels, hidden_channels, heads=heads, resolution=resolution, shortcut=shortcut)
+            *(Bottleneck_Transformer(hidden_channels, hidden_channels, heads=heads, resolution=resolution,
+                                     shortcut=shortcut)
               for _ in range(n))
         )
 
@@ -378,3 +376,43 @@ class GAM_Attention(nn.Module):
             x_spatial_att = channel_shuffle(x_spatial_att, self.rate)
         out = x * x_spatial_att
         return out
+
+
+# ----------------Light modules------------------------------------
+
+
+class GhostConv(nn.Module):
+    # Ghost Convolution https://github.com/huawei-noah/ghostnet
+    def __init__(self, c1, c2, k=1, s=1, g=1, act="silu"):  # ch_in, ch_out, kernel, stride, groups
+        super().__init__()
+        c_ = c2 // 2  # hidden channels
+        self.cv1 = BaseConv(c1, c_, k, s, groups=g, act=act)
+        self.cv2 = BaseConv(c_, c_, 5, 1, groups=c_, act=act)
+
+    def forward(self, x):
+        y = self.cv1(x)
+        return torch.cat((y, self.cv2(y)), 1)
+
+
+class GhostBottleneck(nn.Module):
+    # Ghost Bottleneck https://github.com/huawei-noah/ghostnet
+    def __init__(self, c1, c2, k=3, s=1, act="silu"):  # ch_in, ch_out, kernel, stride
+        super().__init__()
+        c_ = c2 // 2
+        self.conv = nn.Sequential(
+            GhostConv(c1, c_, 1, 1),  # pw
+            DWConv(c_, c_, k, s, act=act) if s == 2 else nn.Identity(),  # dw
+            GhostConv(c_, c2, 1, 1, act=act))  # pw-linear
+        self.shortcut = nn.Sequential(DWConv(c1, c1, k, s, act=act), BaseConv(c1, c2, 1, 1,
+                                                                              act=act)) if s == 2 else nn.Identity()
+
+    def forward(self, x):
+        return self.conv(x) + self.shortcut(x)
+
+
+class C3Ghost(CSPLayer):
+    # C3 module with GhostBottleneck()
+    def __init__(self, c1, c2, n=1, shortcut=True, e=0.5, depthwise=False):
+        super().__init__(c1, c2, n, shortcut, e, depthwise)
+        c_ = int(c2 * e)  # hidden channels
+        self.m = nn.Sequential(*(GhostBottleneck(c_, c_) for _ in range(n)))

@@ -2,7 +2,7 @@ import time
 import torch
 
 from yolox.models.yolo_head import  YOLOXHead
-from yolox.models.yolo_pafpn import YOLOPAFPN_P2
+from yolox.models.yolo_pafpn import YOLOPAFPN_Ghost
 from yolox.models.yolox import YOLOX
 from torchstat import stat
 
@@ -10,7 +10,7 @@ from thop import clever_format, profile
 from torchsummary import summary
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-backbone = YOLOPAFPN_P2(depth=0.33, width=0.5)
+backbone = YOLOPAFPN_Ghost(depth=0.33, width=0.5)
 head = YOLOXHead(1, width=0.5, strides=[4, 8, 16], in_channels=[256, 256, 512])
 model = YOLOX(backbone, head)
 model = model.eval()
@@ -37,41 +37,12 @@ print(model)
     # 改变模型输入大小[768,416]：
     Total GFLOPS: 20.775G
     Total params: 8.938M
-    # 改变模型输入大小[800,480]
-    Total GFLOPS: 24.970G
-    Total params: 8.938M
-    # 改变模型输入大小[768,448]
-    Total GFLOPS: 22.374G
-    Total params: 8.938M
     
-    # 增加Spp模块
-    # Total params: 14.511M
-    # Total GFLOPS: 29.888G
+    # add BoT P2 GAM CBAM  removed P5
+    Total GFLOPS: 53.464G
+    Total params: 7.263M
     
-    # CSPMvitLayer
-    # Total params: 13.473M
-    # Total GFLOPS: 27.398G
-    # 修改1
-    Total params: 13.525M
-    Total GFLOPS: 27.525G
-    
-    将backbone最后一层的CSPlayer 替换成CSPTRlayer:
-    Total GFLOPS: 26.739G
-    Total params: 9.068M
-    
-    增加了p2head：
-    Total GFLOPS: 60.288G
-    Total params: 9.680M
-    
-    在base模型上,将backbone和pan的输出head的CSP模块都换成CSPTRlayer：
-    Total GFLOPS: 27.048G
-    Total params: 9.239M
-    
-    增加MobileVit_block: 在pafpn最后的3个c3模块后
-    Total GFLOPS: 38.692G
-    Total params: 11.272M
-    
-    在backbone后面对每个分支增加一个mvt_cross2
-    Total GFLOPS: 44.294
-    Total params: 18.604
+    # Ghost Backbone
+    Total GFLOPS: 49.259G
+    Total params: 5.683M
 '''

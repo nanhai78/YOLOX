@@ -5,7 +5,7 @@
 import torch
 import torch.nn as nn
 
-from .darknet import CSPDarknet, CSPDarknet_BoT
+from .darknet import CSPDarknet, CSPDarknet_BoT, CSPDarknet_Ghost
 from .network_blocks import BaseConv, CSPLayer, DWConv, CBAM, GAM_Attention
 
 
@@ -15,13 +15,13 @@ class YOLOPAFPN(nn.Module):
     """
 
     def __init__(
-        self,
-        depth=1.0,
-        width=1.0,
-        in_features=("dark3", "dark4", "dark5"),
-        in_channels=[256, 512, 1024],
-        depthwise=False,
-        act="silu",
+            self,
+            depth=1.0,
+            width=1.0,
+            in_features=("dark3", "dark4", "dark5"),
+            in_channels=[256, 512, 1024],
+            depthwise=False,
+            act="silu",
     ):
         super().__init__()
         self.backbone = CSPDarknet(depth, width, depthwise=depthwise, act=act)
@@ -123,6 +123,7 @@ class YOLOPAFPN_P2(nn.Module):
     new Neck:
         Add a detection layer for small targets
     """
+
     def __init__(
             self,
             depth=1.0,
@@ -176,7 +177,7 @@ class YOLOPAFPN_P2(nn.Module):
             False,
             depthwise=depthwise,
             act=act,
-        ) # 128 + 256 -> 256  p2_out
+        )  # 128 + 256 -> 256  p2_out
 
         self.bu_conv3 = Conv(
             int(in_channels[1] * width), int(in_channels[1] * width), 3, 2, act=act  # 64/32  256
@@ -202,24 +203,14 @@ class YOLOPAFPN_P2(nn.Module):
             act=act,
         )  # 256 + 256 -> 512  p4_out
 
-        # self.bu_conv1 = Conv(
-        #     int(in_channels[2] * width), int(in_channels[2] * width), 3, 2, act=act  # 16/8 512
-        # )
-        # self.C3_n4 = CSPLayer(
-        #     int(2 * in_channels[2] * width),
-        #     int(in_channels[3] * width),
-        #     round(3 * depth),
-        #     False,
-        #     depthwise=depthwise,
-        #     act=act,
-        # ) # 512 + 512 -> 1024 p5_out
+        # removed p5
 
         self.gam_p2 = GAM_Attention(  # gam attention for p2
             int(in_channels[0] * width),
             int(in_channels[0] * width),
             group=False,
         )
-
+        # cbam for p2_out p3_out p4_ou4
         for ch in [256, 256, 512]:
             self.cbams.append(CBAM(int(ch * width)))
 
@@ -267,3 +258,21 @@ class YOLOPAFPN_P2(nn.Module):
         outputs = (pan_out3, pan_out2, pan_out1)  # (p2,p3,p4)
 
         return outputs
+
+
+class YOLOPAFPN_Ghost(YOLOPAFPN_P2):
+    """
+        new backbone with GhostNet
+    """
+
+    def __init__(
+            self,
+            depth=1.0,
+            width=1.0,
+            in_features=("dark2", "dark3", "dark4", "dark5"),  # add p2
+            in_channels=[128, 256, 512, 1024],  # add p2
+            depthwise=False,
+            act="silu",
+    ):
+        super(YOLOPAFPN_Ghost, self).__init__(depth, width, in_features, in_channels, depthwise, act)
+        self.backbone = CSPDarknet_Ghost(depth, width, in_features, depthwise, act)  # 替换主干网络

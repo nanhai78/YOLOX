@@ -380,15 +380,13 @@ class GAM_Attention(nn.Module):
 
 
 # ----------------Light modules------------------------------------
-
-
 class GhostConv(nn.Module):
     # Ghost Convolution https://github.com/huawei-noah/ghostnet
-    def __init__(self, c1, c2, k=1, s=1, g=1, act="silu"):  # ch_in, ch_out, kernel, stride, groups
+    def __init__(self, c1, c2, k=1, s=1, g=1, bias=False, act="silu"):  # ch_in, ch_out, kernel, stride, groups
         super().__init__()
         c_ = c2 // 2  # hidden channels
-        self.cv1 = BaseConv(c1, c_, k, s, groups=g, act=act)
-        self.cv2 = BaseConv(c_, c_, 5, 1, groups=c_, act=act)
+        self.cv1 = BaseConv(c1, c_, k, s, bias=bias, groups=g, act=act)
+        self.cv2 = BaseConv(c_, c_, 5, 1, bias=bias, groups=c_, act=act)
 
     def forward(self, x):
         y = self.cv1(x)
@@ -413,8 +411,8 @@ class GhostBottleneck(nn.Module):
 
 class C3Ghost(CSPLayer):
     # C3 module with GhostBottleneck()
-    def __init__(self, c1, c2, n=1, shortcut=True, e=0.5, depthwise=False):
-        super().__init__(c1, c2, n, shortcut, e, depthwise)
+    def __init__(self, c1, c2, n=1, shortcut=True, e=0.5, depthwise=False, act="silu"):
+        super().__init__(c1, c2, n, shortcut, e, depthwise, act)
         c_ = int(c2 * e)  # hidden channels
         self.m = nn.Sequential(*(GhostBottleneck(c_, c_) for _ in range(n)))
 
@@ -422,4 +420,3 @@ class C3Ghost(CSPLayer):
 class DWConv_(BaseConv):
     def __init__(self, c1, c2, ksize, stride, bias=False, act="silu"):
         super(DWConv_, self).__init__(c1, c2, ksize, stride, groups=math.gcd(c1, c2), bias=bias, act=act)
-        pad = (ksize - 1) // 2

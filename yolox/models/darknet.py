@@ -4,7 +4,7 @@
 
 from torch import nn
 
-from .network_blocks import BaseConv, CSPLayer, DWConv, Focus, ResLayer, SPPBottleneck, CSPLayer_BoT
+from .network_blocks import BaseConv, CSPLayer, DWConv, Focus, ResLayer, SPPBottleneck, CSPLayer_BoT, GhostConv,C3Ghost
 
 
 class Darknet(nn.Module):
@@ -12,11 +12,11 @@ class Darknet(nn.Module):
     depth2blocks = {21: [1, 2, 2, 1], 53: [2, 8, 8, 4]}
 
     def __init__(
-        self,
-        depth,
-        in_channels=3,
-        stem_out_channels=32,
-        out_features=("dark3", "dark4", "dark5"),
+            self,
+            depth,
+            in_channels=3,
+            stem_out_channels=32,
+            out_features=("dark3", "dark4", "dark5"),
     ):
         """
         Args:
@@ -96,12 +96,12 @@ class Darknet(nn.Module):
 
 class CSPDarknet(nn.Module):
     def __init__(
-        self,
-        dep_mul,
-        wid_mul,
-        out_features=("dark3", "dark4", "dark5"),
-        depthwise=False,
-        act="silu",
+            self,
+            dep_mul,
+            wid_mul,
+            out_features=("dark3", "dark4", "dark5"),
+            depthwise=False,
+            act="silu",
     ):
         super().__init__()
         assert out_features, "please provide output features of Darknet"
@@ -184,12 +184,12 @@ class CSPDarknet_BoT(CSPDarknet):
             self,
             dep_mul,
             wid_mul,
-            out_features=("dark3", "dark4", "dark5"),
+            out_features=("dark2", "dark3", "dark4", "dark5"),
             depthwise=False,
             act="silu",
     ):
-        assert out_features, "please provide output features of Darknet"
         super(CSPDarknet_BoT, self).__init__(dep_mul, wid_mul, out_features, depthwise, act)
+        assert out_features, "please provide output features of Darknet"
         Conv = DWConv if depthwise else BaseConv
 
         base_channels = int(wid_mul * 64)  # 64
@@ -203,4 +203,72 @@ class CSPDarknet_BoT(CSPDarknet):
                 base_channels * 16,
                 n=base_depth
             )
+        )
+
+
+class CSPDarknet_Ghost(CSPDarknet):
+    def __init__(
+            self,
+            dep_mul,
+            wid_mul,
+            out_features=("dark2", "dark3", "dark4", "dark5"),
+            depthwise=False,
+            act="silu",
+    ):
+        super(CSPDarknet_Ghost, self).__init__(dep_mul, wid_mul, out_features, depthwise, act)
+        assert out_features, "please provide output features of Darknet"
+        base_channels = int(wid_mul * 64)  # 64
+        base_depth = max(round(dep_mul * 3), 1)  # 3
+
+        # stem
+        self.stem = Focus(3, base_channels, ksize=3, act=act)  # 2/64
+
+        # dark2
+        self.dark2 = nn.Sequential(
+            GhostConv(base_channels, base_channels * 2, 3, 2, act=act),
+            C3Ghost(
+                base_channels * 2,
+                base_channels * 2,
+                n=base_depth,
+                depthwise=depthwise,
+                act=act,
+            ),
+        )
+
+        # dark3
+        self.dark3 = nn.Sequential(
+            GhostConv(base_channels * 2, base_channels * 4, 3, 2, act=act),
+            C3Ghost(
+                base_channels * 4,
+                base_channels * 4,
+                n=base_depth * 3,
+                depthwise=depthwise,
+                act=act,
+            ),
+        )
+
+        # dark4
+        self.dark4 = nn.Sequential(
+            GhostConv(base_channels * 4, base_channels * 8, 3, 2, act=act),
+            C3Ghost(
+                base_channels * 8,
+                base_channels * 8,
+                n=base_depth * 3,
+                depthwise=depthwise,
+                act=act,
+            ),
+        )
+
+        # dark5
+        self.dark5 = nn.Sequential(
+            GhostConv(base_channels * 8, base_channels * 16, 3, 2, act=act),
+            SPPBottleneck(base_channels * 16, base_channels * 16, activation=act),
+            C3Ghost(
+                base_channels * 16,
+                base_channels * 16,
+                n=base_depth,
+                shortcut=False,
+                depthwise=depthwise,
+                act=act,
+            ),
         )

@@ -57,3 +57,11 @@ parse_rec处修改xml文件的加载路径
 4. 里面又掉了自己的成员函数_do_python_eval
 5. 里面还调了voc_eval.py文件下的voc_eval函数
 
+# 指令
+
+- 训练
+
+```shell
+python tools/train.py -f exps/example/yolox_voc/yolox_voc_s.py -d 1 -b 32  --fp16
+```
+

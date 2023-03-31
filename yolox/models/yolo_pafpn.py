@@ -134,7 +134,7 @@ class YOLOPAFPN_P2(nn.Module):
             act="silu",
     ):
         super(YOLOPAFPN_P2, self).__init__()
-        self.backbone = CSPDarknet_BoT(depth, width, in_features, depthwise, act)  # 替换主干网络
+        self.backbone = CSPDarknet(depth, width, in_features, depthwise, act)  # 替换主干网络
         self.in_features = in_features
         self.in_channels = in_channels
         Conv = DWConv if depthwise else BaseConv

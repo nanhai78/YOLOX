@@ -1,7 +1,7 @@
 import time
 import torch
 
-from yolox.models.yolo_head import  YOLOXHead
+from yolox.models.yolo_head import YOLOXHead
 from yolox.models.yolo_pafpn import YOLOPAFPN_Ghost
 from yolox.models.yolox import YOLOX
 from torchstat import stat
@@ -26,7 +26,6 @@ flops = flops * 2
 flops, params = clever_format([flops, params], "%.3f")
 print('Total GFLOPS: %s' % (flops))
 print('Total params: %s' % (params))
-#
 print(model)
 
 '''

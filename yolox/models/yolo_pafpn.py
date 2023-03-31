@@ -205,11 +205,11 @@ class YOLOPAFPN_P2(nn.Module):
 
         # removed p5
 
-        self.gam_p2 = GAM_Attention(  # gam attention for p2
-            int(in_channels[0] * width),
-            int(in_channels[0] * width),
-            group=False,
-        )
+        # self.gam_p2 = GAM_Attention(  # gam attention for p2
+        #     int(in_channels[0] * width),
+        #     int(in_channels[0] * width),
+        #     group=False,
+        # )
         # cbam for p2_out p3_out p4_ou4
         for ch in [256, 256, 512]:
             self.cbams.append(CBAM(int(ch * width)))
@@ -232,7 +232,7 @@ class YOLOPAFPN_P2(nn.Module):
         # g3 256->256/4  addition
         fpn_out2 = self.reduce_conv2(f_out1)  # 256->128/8
         f_out2 = self.upsample(fpn_out2)  # 128/4
-        x3 = self.gam_p2(x3)  # gam
+        # x3 = self.gam_p2(x3)  # gam
         f_out2 = torch.cat([f_out2, x3], 1)  # 128->256/4
         pan_out3 = self.C3_p2(f_out2)  # 256->256/4  p2_out
         pan_out3 = self.cbams[0](pan_out3)
@@ -264,7 +264,6 @@ class YOLOPAFPN_Ghost(YOLOPAFPN_P2):
     """
         new backbone with GhostNet
     """
-
     def __init__(
             self,
             depth=1.0,

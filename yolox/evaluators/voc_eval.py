@@ -183,4 +183,7 @@ def voc_eval(
     prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
     ap = voc_ap(rec, prec, use_07_metric)
 
-    return rec, prec, ap
+    f1 = 2 * prec * rec / (prec + rec + 1e-16)    # 计算不同置信度下的f1分数
+    max_index = f1.argmax()  # 返回f1分数最大时的索引
+    # 增加了在当前IOU下各类别的f1分数和recall和precision
+    return rec, prec, ap, f1[max_index], rec[max_index], prec[max_index]

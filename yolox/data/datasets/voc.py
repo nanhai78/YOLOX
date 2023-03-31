@@ -231,16 +231,19 @@ class VOCDetection(CacheDataset):
         IouTh = np.linspace(
             0.5, 0.95, int(np.round((0.95 - 0.5) / 0.05)) + 1, endpoint=True
         )
+        IouTh_total = np.insert(IouTh, 0, np.array([0.1, 0.2, 0.3, 0.4]))  # 添加map0.1到0.4的计算
         mAPs = []
-        for iou in IouTh:
+        for iou in IouTh_total:
+            # 返回在某个iou下的map, mf1, m_rec, m_prec
             mAP = self._do_python_eval(output_dir, iou)
             mAPs.append(mAP)
 
         print("--------------------------------------------------------------")
-        print("map_5095:", np.mean(mAPs))
-        print("map_50:", mAPs[0])
+        print("map_5095:", np.mean(mAPs[4:]))  # 计算从map0.5开始
+        print("map_50:", mAPs[4])
+        print("map_1050:", np.mean(mAPs[0:5]))  # 计算前5个map
         print("--------------------------------------------------------------")
-        return np.mean(mAPs), mAPs[0]
+        return np.mean(mAPs[4:]), mAPs[4]
 
     def _get_voc_results_file_template(self):
         filename = "comp4_det_test" + "_{:s}.txt"
@@ -286,6 +289,9 @@ class VOCDetection(CacheDataset):
         if not os.path.exists(cachedir):
             os.makedirs(cachedir)
         aps = []
+        f1s = []
+        recs = []
+        precs = []
         # The PASCAL VOC metric changed in 2010
         use_07_metric = False
         print("Eval IoU : {:.2f}".format(iou))
@@ -297,7 +303,8 @@ class VOCDetection(CacheDataset):
                 continue
 
             filename = self._get_voc_results_file_template().format(cls)
-            rec, prec, ap = voc_eval(
+            # 我们增加了三个评估指标f1,recall,precision
+            rec, prec, ap, f1, rec, prec = voc_eval(
                 filename,
                 annopath,
                 imagesetfile,
@@ -306,14 +313,23 @@ class VOCDetection(CacheDataset):
                 ovthresh=iou,
                 use_07_metric=use_07_metric,
             )
-            aps += [ap]
-            if iou == 0.5:
-                print("AP for {} = {:.4f}".format(cls, ap))
+            aps += [ap]  # 在当前iou记录各个类别的ap
+            f1s += [f1]
+            recs += [rec]
+            precs += [prec]
+            if iou in [0.5]:  # 在iou = 0.5下输出各个类别的ap, f1, rec, prec
+                print("AP for {} = {:.4f}".format(cls, ap))  # 输出各个类别的ap
+                print("f1 for {} = {:.4f}".format(cls, f1))  # 输出各个类别的f1
+                print("rec for {} = {:.4f}".format(cls, rec))  # 输出各个类别的rec
+                print("prec for {} = {:.4f}".format(cls, prec))  # 输出各个类别的prec
             if output_dir is not None:
                 with open(os.path.join(output_dir, cls + "_pr.pkl"), "wb") as f:
                     pickle.dump({"rec": rec, "prec": prec, "ap": ap}, f)
-        if iou == 0.5:
+        if iou == [0.1, 0.2, 0.3, 0.4, 0.5]:  # 对各个类比的ap进行汇总，得到map
             print("Mean AP = {:.4f}".format(np.mean(aps)))
+            print("Mean f1 = {:.4f}".format(np.mean(f1s)))
+            print("Mean rec = {:.4f}".format(np.mean(recs)))
+            print("Mean prec = {:.4f}".format(np.mean(precs)))
             print("~~~~~~~~")
             print("Results:")
             for ap in aps:
@@ -327,5 +343,4 @@ class VOCDetection(CacheDataset):
             print("Recompute with `./tools/reval.py --matlab ...` for your paper.")
             print("-- Thanks, The Management")
             print("--------------------------------------------------------------")
-
         return np.mean(aps)

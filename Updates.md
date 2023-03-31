@@ -62,6 +62,25 @@ parse_rec处修改xml文件的加载路径
 - 训练
 
 ```shell
-python tools/train.py -f exps/example/yolox_voc/yolox_voc_s.py -d 1 -b 32  --fp16
+python -m yolox.tools.train -f exps/example/yolox_voc/yolox_voc_s.py -d 1 -b 32 --fp16 -o
+```
+
+
+
+# 消融实验
+
+
+
+```
+backbone：CSPDarknet  Neck: P2;去掉了P5;在输出位置添加了cbam模块 
+
+```
+
+```
+backbone：CSPDarknet_Ghost  Neck: P2;去掉了P5;在输出位置添加了cbam模块 
+```
+
+```
+backbone：CSPDarknet Neck：只去掉p5；在输出位置添加cbam模块
 ```
 

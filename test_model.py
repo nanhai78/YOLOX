@@ -37,11 +37,15 @@ print(model)
     Total GFLOPS: 20.775G
     Total params: 8.938M
     
-    # add BoT P2 GAM CBAM  removed P5
+    # backbone->CSPDarknet_BoT(Bot, GAM)   neck->P2(p2 cbam)
     Total GFLOPS: 53.464G
     Total params: 7.263M
     
-    # Ghost Backbone
-    Total GFLOPS: 49.259G
-    Total params: 5.683M
+    # backbone->CSPDarknet  neck->P2(p2 cbam)
+    Total GFLOPS: 49.605G
+    Total params: 7.553M
+    
+    # backbone->CSPDarknet_Ghost  neck->P2(p2 cbam)
+    Total GFLOPS: 45.157G
+    Total params: 5.580M
 '''

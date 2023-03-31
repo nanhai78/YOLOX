@@ -320,7 +320,7 @@ class VOCDetection(CacheDataset):
             f1s += [f1]
             recs += [rec]
             precs += [prec]
-            if iou in [0.5]:  # 在iou = 0.5下输出各个类别的ap, f1, rec, prec
+            if iou == 0.5:  # 在iou = 0.5下输出各个类别的ap, f1, rec, prec
                 print("AP for {} = {:.4f}".format(cls, ap))  # 输出各个类别的ap
                 print("f1 for {} = {:.4f}".format(cls, f1))  # 输出各个类别的f1
                 print("rec for {} = {:.4f}".format(cls, rec))  # 输出各个类别的rec
@@ -328,7 +328,7 @@ class VOCDetection(CacheDataset):
             if output_dir is not None:
                 with open(os.path.join(output_dir, cls + "_pr.pkl"), "wb") as f:
                     pickle.dump({"rec": rec, "prec": prec, "ap": ap}, f)
-        if iou == [0.1, 0.2, 0.3, 0.4, 0.5]:  # 对各个类比的ap进行汇总，得到map
+        if iou in [0.1, 0.2, 0.3, 0.4, 0.5]:  # 对各个类比的ap进行汇总，得到map
             print("Mean AP = {:.4f}".format(np.mean(aps)))
             print("Mean f1 = {:.4f}".format(np.mean(f1s)))
             print("Mean rec = {:.4f}".format(np.mean(recs)))

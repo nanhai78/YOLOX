@@ -23,7 +23,7 @@ def get_yolox_datadir():
     yolox_datadir = os.getenv("YOLOX_DATADIR", None)
     if yolox_datadir is None:
         import yolox
-
+        # 根目录
         yolox_path = os.path.dirname(os.path.dirname(yolox.__file__))
         yolox_datadir = os.path.join(yolox_path, "datasets")
     return yolox_datadir

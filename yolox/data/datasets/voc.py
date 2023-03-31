@@ -50,6 +50,9 @@ class AnnotationTransform(object):
         """
         res = np.empty((0, 5))
         for obj in target.iter("object"):
+            name = obj.find("name").text.strip()
+            if name not in VOC_CLASSES:
+                continue
             difficult = obj.find("difficult")
             if difficult is not None:
                 difficult = int(difficult.text) == 1
@@ -57,7 +60,7 @@ class AnnotationTransform(object):
                 difficult = False
             if not self.keep_difficult and difficult:
                 continue
-            name = obj.find("name").text.strip()
+
             bbox = obj.find("bndbox")
 
             pts = ["xmin", "ymin", "xmax", "ymax"]

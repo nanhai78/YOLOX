@@ -65,19 +65,53 @@ parse_rec处修改xml文件的加载路径
 python -m yolox.tools.train -f exps/example/yolox_voc/yolox_voc_s.py -d 1 -b 32 --fp16 -o
 ```
 
+- 验证
 
+```shell
+python -m yolox.tools.eval -f exps/example/yolox_voc/yolox_voc_s.py -d 1 -b 32 --conf 0.001 --fp16 --fuse --nms 0.65
+```
+
+ 
 
 # 消融实验
 
+```
+原模型yolox-s
+
+map@0.5:0.95(%)  97.37
+map@0.5  95.77
+map@0.1:0.5  63.09
+
+iou=0.5;  f1=92.89 	rec=92.29 	prec=93.49
+iou=0.1   f1=94.86 	rec=94.34 	prec=95.38
+
+Total GFLOPS: 20.775G
+Total params: 8.938M  
+input_size: [768,416]
+```
+
 
 
 ```
-backbone：CSPDarknet  Neck: P2;去掉了P5;在输出位置添加了cbam模块 
+backbone：CSPDarknet  
+Neck: 增加了P2;去掉了P5;
+在输出位置添加了cbam模块 
 
+map@0.5:0.95(%)  65.16
+map@0.5  96.37
+map@0.1:0.5  97.62
+
+iou=0.5;  f1=93.26 	rec=92.20 	prec=94.33
+iou=0.1   f1=94.85 	rec=93.78 	prec=95.96
+
+Total GFLOPS: 49.605G
+Total params: 7.553M 
+input_size: [768,416]
 ```
 
 ```
-backbone：CSPDarknet_Ghost  Neck: P2;去掉了P5;在输出位置添加了cbam模块 
+backbone：CSPDarknet_Ghost  
+Neck: P2;去掉了P5;在输出位置添加了cbam模块 
 ```
 
 ```

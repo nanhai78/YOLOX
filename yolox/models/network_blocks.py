@@ -440,13 +440,10 @@ def channel_shuffle(x, groups):
 
 
 class conv_bn_relu_maxpool(nn.Module):
-    def __init__(self, c1, c2):  # ch_in, ch_out
+    def __init__(self, c1, c2, act="silu"):  # ch_in, ch_out
         super(conv_bn_relu_maxpool, self).__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(c1, c2, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(c2),
-            nn.ReLU(inplace=True),
-        )
+
+        self.conv = BaseConv(c1, c2, ksize=3, stride=2, act=act)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1, dilation=1, ceil_mode=False)
 
     def forward(self, x):
@@ -454,13 +451,15 @@ class conv_bn_relu_maxpool(nn.Module):
 
 
 class Shuffle_Block(nn.Module):
+    """
+    将relu激活函数修改为了silu激活函数
+    """
     def __init__(self, inp, oup, stride):
         super(Shuffle_Block, self).__init__()
 
         if not (1 <= stride <= 3):
             raise ValueError('illegal stride value')
         self.stride = stride
-
         branch_features = oup // 2
         assert (self.stride != 1) or (inp == branch_features << 1)
 
@@ -470,19 +469,19 @@ class Shuffle_Block(nn.Module):
                 nn.BatchNorm2d(inp),
                 nn.Conv2d(inp, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
                 nn.BatchNorm2d(branch_features),
-                nn.ReLU(inplace=True),
+                nn.SiLU(inplace=True),
             )
 
         self.branch2 = nn.Sequential(
             nn.Conv2d(inp if (self.stride > 1) else branch_features,
                       branch_features, kernel_size=1, stride=1, padding=0, bias=False),
             nn.BatchNorm2d(branch_features),
-            nn.ReLU(inplace=True),
+            nn.SiLU(inplace=True),
             self.depthwise_conv(branch_features, branch_features, kernel_size=3, stride=self.stride, padding=1),
             nn.BatchNorm2d(branch_features),
             nn.Conv2d(branch_features, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
             nn.BatchNorm2d(branch_features),
-            nn.ReLU(inplace=True),
+            nn.SiLU(inplace=True),
         )
 
     @staticmethod

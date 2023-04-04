@@ -4,7 +4,8 @@
 
 from torch import nn
 
-from .network_blocks import BaseConv, CSPLayer, DWConv, Focus, ResLayer, SPPBottleneck, CSPLayer_BoT, GhostConv,C3Ghost
+from .network_blocks import BaseConv, CSPLayer, DWConv, Focus, ResLayer, \
+    SPPBottleneck, CSPLayer_BoT, GhostConv, C3Ghost, conv_bn_relu_maxpool, Shuffle_Block
 
 
 class Darknet(nn.Module):
@@ -272,3 +273,54 @@ class CSPDarknet_Ghost(CSPDarknet):
                 act=act,
             ),
         )
+
+
+class ShuffleNet(nn.Module):
+    """
+    backbone with shuffleNet;
+    """
+
+    def __init__(self,
+                 wid_mul,
+                 out_features=("dark3", "dark4", "dark5"),
+                 act="silu",
+                 ):
+        super(ShuffleNet, self).__init__()
+        base_channels = int(wid_mul * 64)  # 64
+        base_depth = [3, 7, 7, 3]
+        self.out_features = out_features
+        self.stem = Focus(3, base_channels, ksize=3, act=act)  # 2/64
+
+        self.dark2 = nn.Sequential(
+            Shuffle_Block(base_channels, base_channels * 2, 2),  # 下采样
+            *[Shuffle_Block(base_channels * 2, base_channels * 2, 1) for _ in range(base_depth[0])],
+        )
+
+        self.dark3 = nn.Sequential(
+            Shuffle_Block(base_channels * 2, base_channels * 4, 2),
+            *[Shuffle_Block(base_channels * 4, base_channels * 4, 1) for _ in range(base_depth[1])],
+        )
+
+        self.dark4 = nn.Sequential(
+            Shuffle_Block(base_channels * 4, base_channels * 8, 2),
+            *[Shuffle_Block(base_channels * 8, base_channels * 8, 1) for _ in range(base_depth[2])],
+        )
+
+        self.dark5 = nn.Sequential(
+            Shuffle_Block(base_channels * 8, base_channels * 16, 2),
+            *[Shuffle_Block(base_channels * 16, base_channels * 16, 1) for _ in range(base_depth[3])],
+        )
+
+    def forward(self, x):
+        outputs = {}
+        x = self.stem(x)
+        outputs["stem"] = x
+        x = self.dark2(x)
+        outputs["dark2"] = x
+        x = self.dark3(x)
+        outputs["dark3"] = x
+        x = self.dark4(x)
+        outputs["dark4"] = x
+        x = self.dark5(x)
+        outputs["dark5"] = x
+        return {k: v for k, v in outputs.items() if k in self.out_features}

@@ -5,7 +5,7 @@
 import torch
 import torch.nn as nn
 
-from .darknet import CSPDarknet, CSPDarknet_BoT, CSPDarknet_Ghost
+from .darknet import CSPDarknet, CSPDarknet_BoT, CSPDarknet_Ghost, ShuffleNet
 from .network_blocks import BaseConv, CSPLayer, DWConv, CBAM, GAM_Attention
 
 
@@ -264,6 +264,7 @@ class YOLOPAFPN_Ghost(YOLOPAFPN_P2):
     """
         new backbone with GhostNet
     """
+
     def __init__(
             self,
             depth=1.0,
@@ -275,3 +276,21 @@ class YOLOPAFPN_Ghost(YOLOPAFPN_P2):
     ):
         super(YOLOPAFPN_Ghost, self).__init__(depth, width, in_features, in_channels, depthwise, act)
         self.backbone = CSPDarknet_Ghost(depth, width, in_features, depthwise, act)  # 替换主干网络
+
+
+class YOLOPAFPN_ShuffleNet(YOLOPAFPN_P2):
+    """
+            new backbone with shuffle net
+        """
+
+    def __init__(
+            self,
+            depth=1.0,
+            width=1.0,
+            in_features=("dark2", "dark3", "dark4", "dark5"),  # add p2
+            in_channels=[128, 256, 512, 1024],  # add p2
+            depthwise=False,
+            act="silu",
+    ):
+        super(YOLOPAFPN_ShuffleNet, self).__init__(depth, width, in_features, in_channels, depthwise, act)
+        self.backbone = ShuffleNet(width, in_features, act)  # 替换主干网络

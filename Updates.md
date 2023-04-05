@@ -71,7 +71,19 @@ python -m yolox.tools.train -f exps/example/yolox_voc/yolox_voc_s.py -d 1 -b 32 
 python -m yolox.tools.eval -f exps/example/yolox_voc/yolox_voc_s.py -d 1 -b 32 --conf 0.001 --fp16 --fuse --nms 0.65
 ```
 
- 
+- demo
+
+```shell
+python tools/demo.py image -f exps/example/yolox_voc/yolox_voc_s.py -c weight/light_models/best_ckpt_ghost.pth --path assets/demo --conf 0.25 --nms 0.65 --device cpu
+```
+
+- tensorboard
+
+```shell
+在终端服务器 ->   tensorboard --logdir="事件地址" --port=6006
+在本地终端映射 -> ssh -L 16006:127.0.0.1:6006 gli@192.168.0.108 -p 22
+打开本地浏览器 -> 127.0.0.1:16006
+```
 
 # 消融实验
 
@@ -89,8 +101,6 @@ Total GFLOPS: 20.775G
 Total params: 8.938M  
 input_size: [768,416]
 ```
-
-
 
 ```
 backbone：CSPDarknet  
@@ -111,10 +121,28 @@ input_size: [768,416]
 
 ```
 backbone：CSPDarknet_Ghost  
-Neck: P2;去掉了P5;在输出位置添加了cbam模块 
+Neck: P2;去掉了P5;在输出位置添加了cbam模块, neck没有替换成ghost
+
+map@0.5:0.95(%)  64.98
+map@0.5  96.42
+map@0.1:0.5  97.73
+
+iou=0.5;  f1=93.10 	rec=92.81 	prec=93.39
+iou=0.1   f1=94.82 	rec=94.72 	prec=94.93
+
+Total GFLOPS: 45.157G
+Total params: 5.580M
+input_size: [768,416]
 ```
 
 ```
 backbone：CSPDarknet Neck：只去掉p5；在输出位置添加cbam模块
+```
+
+```
+backbone：CSPDarknet_Ghost  
+Neck: P2;去掉了P5;在输出位置添加了cbam模块 其中的C3模块也变成了C3_Ghost, BaseConv变成了Ghost_Conv
+
+
 ```
 

@@ -1,13 +1,13 @@
 import torch
 
 from yolox.models.yolo_head import YOLOXHead
-from yolox.models.yolo_pafpn import YOLOPAFPN_ShuffleNet
+from yolox.models.yolo_pafpn import YOLOPAFPN_Ghost
 from yolox.models.yolox import YOLOX
 
 from thop import clever_format, profile
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-backbone = YOLOPAFPN_ShuffleNet(depth=0.33, width=0.5)
+backbone = YOLOPAFPN_Ghost(depth=0.33, width=0.5)
 head = YOLOXHead(1, width=0.5, strides=[4, 8, 16], in_channels=[256, 256, 512])
 model = YOLOX(backbone, head)
 model = model.eval()
@@ -45,6 +45,10 @@ print(model)
     # backbone->CSPDarknet_Ghost  neck->P2(p2 cbam)
     Total GFLOPS: 45.157G
     Total params: 5.580M
+    
+    # backbone->CSPDarknet_Ghost  neck->P2(p2 cbam, ghost) 
+    Total GFLOPS: 41.082G
+    Total params: 4.932M
     
     # backbone->shuffle net  neck->P2(p2 cbam)
     Total GFLOPS: 44.546G

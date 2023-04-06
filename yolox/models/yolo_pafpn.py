@@ -279,7 +279,7 @@ class YOLOPAFPN_Ghost(YOLOPAFPN_P2):
 
         Conv = DWConv if depthwise else GhostConv
 
-        neck 也要修改
+        # neck 也要修改
         self.lateral_conv0 = GhostConv(
             int(in_channels[3] * width), int(in_channels[2] * width), 1, 1, act=act  # 1024 -> 512
         )

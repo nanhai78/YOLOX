@@ -83,6 +83,14 @@ def make_parser():
         action="store_true",
         help="Using TensorRT model for testing.",
     )
+
+    parser.add_argument(
+        "--speed",
+        default=False,
+        action="store_true",
+        help="test speed.",
+    )
+
     return parser
 
 
@@ -108,6 +116,7 @@ class Predictor(object):
         device="cpu",
         fp16=False,
         legacy=False,
+        speed=False,
     ):
         self.model = model
         self.cls_names = cls_names
@@ -119,6 +128,7 @@ class Predictor(object):
         self.device = device
         self.fp16 = fp16
         self.preproc = ValTransform(legacy=legacy)
+        self.speed = speed
         if trt_file is not None:
             from torch2trt import TRTModule
 
@@ -152,6 +162,19 @@ class Predictor(object):
             img = img.cuda()
             if self.fp16:
                 img = img.half()  # to FP16
+
+        if self.speed:
+            with torch.no_grad():
+                t0 = time.time()
+                for i in range(100):
+                    outputs = self.model(img)
+                    if self.decoder is not None:
+                        outputs = self.decoder(outputs, dtype=outputs.type())
+                    _ = postprocess(
+                        outputs, self.num_classes, self.confthre,
+                        self.nmsthre, class_agnostic=True
+                    )
+                print("average Infer time: {:.4f}s".format(time.time() - t0))
 
         with torch.no_grad():
             t0 = time.time()
@@ -304,7 +327,7 @@ def main(exp, args):
 
     predictor = Predictor(
         model, exp, COCO_CLASSES, trt_file, decoder,
-        args.device, args.fp16, args.legacy,
+        args.device, args.fp16, args.legacy, args.speed
     )
     current_time = time.localtime()
     if args.demo == "image":

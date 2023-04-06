@@ -107,16 +107,15 @@ def get_image_list(path):
 
 class Predictor(object):
     def __init__(
-        self,
-        model,
-        exp,
-        cls_names=COCO_CLASSES,
-        trt_file=None,
-        decoder=None,
-        device="cpu",
-        fp16=False,
-        legacy=False,
-        speed=False,
+            self,
+            model,
+            exp,
+            cls_names=COCO_CLASSES,
+            trt_file=None,
+            decoder=None,
+            device="cpu",
+            fp16=False,
+            legacy=False,
     ):
         self.model = model
         self.cls_names = cls_names
@@ -128,7 +127,6 @@ class Predictor(object):
         self.device = device
         self.fp16 = fp16
         self.preproc = ValTransform(legacy=legacy)
-        self.speed = speed
         if trt_file is not None:
             from torch2trt import TRTModule
 
@@ -163,19 +161,6 @@ class Predictor(object):
             if self.fp16:
                 img = img.half()  # to FP16
 
-        if self.speed:
-            with torch.no_grad():
-                t0 = time.time()
-                for i in range(100):
-                    outputs = self.model(img)
-                    if self.decoder is not None:
-                        outputs = self.decoder(outputs, dtype=outputs.type())
-                    _ = postprocess(
-                        outputs, self.num_classes, self.confthre,
-                        self.nmsthre, class_agnostic=True
-                    )
-                print("average Infer time: {:.4f}s".format(time.time() - t0))
-
         with torch.no_grad():
             t0 = time.time()
             outputs = self.model(img)
@@ -187,6 +172,44 @@ class Predictor(object):
             )
             logger.info("Infer time: {:.4f}s".format(time.time() - t0))
         return outputs, img_info
+
+    def inference_speed(self, img):
+        img_info = {"id": 0}
+        if isinstance(img, str):
+            img_info["file_name"] = os.path.basename(img)
+            img = cv2.imread(img)
+        else:
+            img_info["file_name"] = None
+
+        height, width = img.shape[:2]
+        img_info["height"] = height
+        img_info["width"] = width
+        img_info["raw_img"] = img
+
+        ratio = min(self.test_size[0] / img.shape[0], self.test_size[1] / img.shape[1])
+        img_info["ratio"] = ratio
+
+        img, _ = self.preproc(img, None, self.test_size)
+        img = torch.from_numpy(img).unsqueeze(0)
+        img = img.float()
+        if self.device == "gpu":
+            img = img.cuda()
+            if self.fp16:
+                img = img.half()  # to FP16
+
+        with torch.no_grad():
+            t0 = time.time()
+            for i in range(100):
+                outputs = self.model(img)
+                if self.decoder is not None:
+                    outputs = self.decoder(outputs, dtype=outputs.type())
+                _ = postprocess(
+                    outputs, self.num_classes, self.confthre,
+                    self.nmsthre, class_agnostic=True
+                )
+            t1 = time.time()
+
+        return (t1 - t0) / 100
 
     def visual(self, output, img_info, cls_conf=0.35):
         ratio = img_info["ratio"]
@@ -207,12 +230,17 @@ class Predictor(object):
         return vis_res
 
 
-def image_demo(predictor, vis_folder, path, current_time, save_result):
+def image_demo(predictor, vis_folder, path, current_time, save_result, speed=False):
     if os.path.isdir(path):
         files = get_image_list(path)
     else:
         files = [path]
     files.sort()
+    # 测试推理速度
+    test_image_id = files[0]
+    ave_time = predictor.inference_speed(test_image_id)
+    print("aver Infer time: {:.4f}s".format(ave_time))  # 平均推理时间
+
     for image_name in files:
         outputs, img_info = predictor.inference(image_name)
         result_image = predictor.visual(outputs[0], img_info, predictor.confthre)
@@ -327,11 +355,12 @@ def main(exp, args):
 
     predictor = Predictor(
         model, exp, COCO_CLASSES, trt_file, decoder,
-        args.device, args.fp16, args.legacy, args.speed
+        args.device, args.fp16, args.legacy
     )
+
     current_time = time.localtime()
     if args.demo == "image":
-        image_demo(predictor, vis_folder, args.path, current_time, args.save_result)
+        image_demo(predictor, vis_folder, args.path, current_time, args.save_result, args.speed)
     elif args.demo == "video" or args.demo == "webcam":
         imageflow_demo(predictor, vis_folder, current_time, args)
 

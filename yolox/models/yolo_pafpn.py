@@ -277,75 +277,75 @@ class YOLOPAFPN_Ghost(YOLOPAFPN_P2):
         super(YOLOPAFPN_Ghost, self).__init__(depth, width, in_features, in_channels, depthwise, act)
         self.backbone = CSPDarknet_Ghost(depth, width, in_features, depthwise, act)  # 替换主干网络
 
-        # Conv = DWConv if depthwise else GhostConv
+        Conv = DWConv if depthwise else GhostConv
 
-        # neck 也要修改
-        # self.lateral_conv0 = GhostConv(
-        #     int(in_channels[3] * width), int(in_channels[2] * width), 1, 1, act=act  # 1024 -> 512
-        # )
-        # self.C3_p4 = C3Ghost(
-        #     int(2 * in_channels[2] * width),
-        #     int(in_channels[2] * width),
-        #     round(3 * depth),
-        #     False,
-        #     depthwise=depthwise,
-        #     act=act,
-        # )  # 512 + 512 -> 512
-        #
-        # self.reduce_conv1 = GhostConv(
-        #     int(in_channels[2] * width), int(in_channels[1] * width), 1, 1, act=act  # 512 -> 256
-        # )
-        # self.C3_p3 = C3Ghost(
-        #     int(2 * in_channels[1] * width),
-        #     int(in_channels[1] * width),
-        #     round(3 * depth),
-        #     False,
-        #     depthwise=depthwise,
-        #     act=act,
-        # )  # 256 + 256 -> 256
-        #
-        # # add p2
-        # self.reduce_conv2 = GhostConv(
-        #     int(in_channels[1] * width), int(in_channels[1] * width), 1, 1, act=act  # 256 -> 256
-        # )
-        # self.C3_p2 = C3Ghost(
-        #     int((in_channels[0] + in_channels[1]) * width),
-        #     int(in_channels[1] * width),  # 256
-        #     round(3 * depth),
-        #     False,
-        #     depthwise=depthwise,
-        #     act=act,
-        # )  # 128 + 256 -> 256  p2_out
-        #
-        # self.bu_conv3 = Conv(
-        #     int(in_channels[1] * width), int(in_channels[1] * width), 3, 2, act=act  # 64/32  256
-        # )
-        # self.C3_n2 = C3Ghost(
-        #     int(2 * in_channels[1] * width),
-        #     int(in_channels[1] * width),
-        #     round(3 * depth),
-        #     False,
-        #     depthwise=depthwise,
-        #     act=act,
-        # )  # 512 -> 256 p3_out
-        #
-        # self.bu_conv2 = Conv(
-        #     int(in_channels[1] * width), int(in_channels[1] * width), 3, 2, act=act  # 32/16 256
-        # )
-        # self.C3_n3 = C3Ghost(
-        #     int(2 * in_channels[1] * width),
-        #     int(in_channels[2] * width),
-        #     round(3 * depth),
-        #     False,
-        #     depthwise=depthwise,
-        #     act=act,
-        # )  # 256 + 256 -> 512  p4_out
-        #
-        # # removed p5
-        #
-        # # cbam for p2_out p3_out p4_ou4
-        # for ch in [256, 256, 512]:
-        #     self.cbams.append(CBAM(int(ch * width)))
+        neck 也要修改
+        self.lateral_conv0 = GhostConv(
+            int(in_channels[3] * width), int(in_channels[2] * width), 1, 1, act=act  # 1024 -> 512
+        )
+        self.C3_p4 = C3Ghost(
+            int(2 * in_channels[2] * width),
+            int(in_channels[2] * width),
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )  # 512 + 512 -> 512
+
+        self.reduce_conv1 = GhostConv(
+            int(in_channels[2] * width), int(in_channels[1] * width), 1, 1, act=act  # 512 -> 256
+        )
+        self.C3_p3 = C3Ghost(
+            int(2 * in_channels[1] * width),
+            int(in_channels[1] * width),
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )  # 256 + 256 -> 256
+
+        # add p2
+        self.reduce_conv2 = GhostConv(
+            int(in_channels[1] * width), int(in_channels[1] * width), 1, 1, act=act  # 256 -> 256
+        )
+        self.C3_p2 = C3Ghost(
+            int((in_channels[0] + in_channels[1]) * width),
+            int(in_channels[1] * width),  # 256
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )  # 128 + 256 -> 256  p2_out
+
+        self.bu_conv3 = Conv(
+            int(in_channels[1] * width), int(in_channels[1] * width), 3, 2, act=act  # 64/32  256
+        )
+        self.C3_n2 = C3Ghost(
+            int(2 * in_channels[1] * width),
+            int(in_channels[1] * width),
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )  # 512 -> 256 p3_out
+
+        self.bu_conv2 = Conv(
+            int(in_channels[1] * width), int(in_channels[1] * width), 3, 2, act=act  # 32/16 256
+        )
+        self.C3_n3 = C3Ghost(
+            int(2 * in_channels[1] * width),
+            int(in_channels[2] * width),
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )  # 256 + 256 -> 512  p4_out
+
+        # removed p5
+
+        # cbam for p2_out p3_out p4_ou4
+        for ch in [256, 256, 512]:
+            self.cbams.append(CBAM(int(ch * width)))
 
 
 class YOLOPAFPN_ShuffleNet(YOLOPAFPN_P2):

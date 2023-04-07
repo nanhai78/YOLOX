@@ -89,50 +89,20 @@ python tools/demo.py image -f exps/example/yolox_voc/yolox_voc_s.py -c weight/li
 
 ```
 原模型yolox-s
-
-map@0.5:0.95(%)  97.37
-map@0.5  95.77
-map@0.1:0.5  63.09
-
-iou=0.5;  f1=92.89 	rec=92.29 	prec=93.49
 iou=0.1   f1=94.86 	rec=94.34 	prec=95.38
-
-Total GFLOPS: 20.775G
-Total params: 8.938M  
-input_size: [768,416]
 ```
 
 ```
 backbone：CSPDarknet  
 Neck: 增加了P2;去掉了P5;
 在输出位置添加了cbam模块 
-
-map@0.5:0.95(%)  65.16
-map@0.5  96.37
-map@0.1:0.5  97.62
-
-iou=0.5;  f1=93.26 	rec=92.20 	prec=94.33
 iou=0.1   f1=94.85 	rec=93.78 	prec=95.96
-
-Total GFLOPS: 49.605G
-Total params: 7.553M 
-input_size: [768,416]
 ```
 
 ```
 backbone：CSPDarknet_Ghost  
 Neck: P2;去掉了P5;在输出位置添加了cbam模块, neck没有替换成ghost
-
-map@0.5:0.95(%)  64.98
-map@0.5  96.42
-map@0.1:0.5  97.73
-
-iou=0.5;  f1=93.10 	rec=92.81 	prec=93.39
 iou=0.1   f1=94.82 	rec=94.72 	prec=94.93
-
-Total GFLOPS: 45.157G
-Total params: 5.580M
-input_size: [768,416]
 ```
 
 ```
@@ -145,4 +115,10 @@ Neck: P2;去掉了P5;在输出位置添加了cbam模块 其中的C3模块也变�
 
 
 ```
+
+| models      | ap(0.5:0.95) | ap0.5 | ap(0.1:0.5) | f1(0.5) | r(0.5) | p(0.5) | flops   | para   | speed(cpu)(ms) |
+| ----------- | ------------ | ----- | ----------- | ------- | ------ | ------ | ------- | ------ | -------------- |
+| yolox-s     | 63.09        | 95.77 | 97.37       | 92.89   | 92.29  | 93.49  | 20.775G | 8.938M |                |
+| yolox-p2    | 65.16        | 96.37 | 97.62       | 93.26   | 92.20  | 94.33  | 49.605G | 7.553M | 151            |
+| yolox-ghost | 64.98        | 96.42 | 97.73       | 93.10   | 92.81  | 93.39  | 45.157G | 5.580M |                |
 

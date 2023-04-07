@@ -237,9 +237,10 @@ def image_demo(predictor, vis_folder, path, current_time, save_result, speed=Fal
         files = [path]
     files.sort()
     # 测试推理速度
-    test_image_id = files[0]
-    ave_time = predictor.inference_speed(test_image_id)
-    print("aver Infer time: {:.4f}s".format(ave_time))  # 平均推理时间
+    if speed:
+        test_image_id = files[0]
+        ave_time = predictor.inference_speed(test_image_id)
+        print("aver Infer time: {:.4f}s".format(ave_time))  # 平均推理时间
 
     for image_name in files:
         outputs, img_info = predictor.inference(image_name)

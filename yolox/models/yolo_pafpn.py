@@ -205,12 +205,6 @@ class YOLOPAFPN_P2(nn.Module):
 
         # removed p5
 
-        # self.gam_p2 = GAM_Attention(  # gam attention for p2
-        #     int(in_channels[0] * width),
-        #     int(in_channels[0] * width),
-        #     group=False,
-        # )
-        # cbam for p2_out p3_out p4_ou4
         for ch in [256, 256, 512]:
             self.cbams.append(CBAM(int(ch * width)))
 

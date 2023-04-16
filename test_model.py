@@ -1,14 +1,14 @@
 import torch
 
 from yolox.models.yolo_head import YOLOXHead
-from yolox.models.yolo_pafpn import YOLOPAFPN_Ghost
+from yolox.models.yolo_pafpn import YOLOPAFPN_rP5
 from yolox.models.yolox import YOLOX
 
 from thop import clever_format, profile
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-backbone = YOLOPAFPN_Ghost(depth=0.33, width=0.5)
-head = YOLOXHead(1, width=0.5, strides=[4, 8, 16], in_channels=[256, 256, 512])
+backbone = YOLOPAFPN_rP5(depth=0.33, width=0.5)
+head = YOLOXHead(1, width=0.5, strides=[8, 16], in_channels=[256, 512])
 model = YOLOX(backbone, head)
 model = model.eval()
 model = model.to(device)
@@ -53,4 +53,8 @@ print(model)
     # backbone->shuffle net  neck->P2(p2 cbam)
     Total GFLOPS: 44.546G
     Total params: 4.337M
+    
+    # backbone->cspdarknet  neck->no dark5
+    Total GFLOPS: 19.351G
+    Total params: 6.507M
 '''

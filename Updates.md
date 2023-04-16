@@ -74,7 +74,7 @@ python -m yolox.tools.eval -f exps/example/yolox_voc/yolox_voc_s.py -d 1 -b 32 -
 - demo
 
 ```shell
-python tools/demo.py image -f exps/example/yolox_voc/yolox_voc_s.py -c weight/light_models/best_ckpt_ghost.pth --path assets/demo --conf 0.25 --nms 0.65 --device cpu
+python tools/demo.py image -f exps/example/yolox_voc/yolox_voc_s.py -c weight/light_models/best_ckpt_ghost.pth --path assets/demo --conf 0.25 --nms 0.65 --device cpu --speed --fp16
 ```
 
 - tensorboard
@@ -118,8 +118,12 @@ Neck: P2;去掉了P5;在输出位置添加了cbam模块 其中的C3模块也变�
 
 | models   | ap(0.5:0.95) | ap0.5 | ap(0.1:0.5) | f1(0.5) | r(0.5) | p(0.5) | flops   | para   | speed(cpu)(ms) |
 | -------- | ------------ | ----- | ----------- | ------- | ------ | ------ | ------- | ------ | -------------- |
-| yolox-s  | 63.09        | 95.77 | 97.37       | 92.89   | 92.29  | 93.49  | 20.775G | 8.938M |                |
-| yolox-p2 | 65.16        | 96.37 | 97.62       | 93.26   | 92.20  | 94.33  | 49.605G | 7.553M | 151            |
+| yolox-s  | 63.09        | 95.77 | 97.37       | 92.89   | 92.29  | 93.49  | 20.775G | 8.938M | 63             |
+| yolox-p2 | 65.16        | 96.37 | 97.62       | 93.26   | 92.20  | 94.33  | 49.605G | 7.553M | 113            |
 | b-ghost  | 64.98        | 96.42 | 97.73       | 93.10   | 92.81  | 93.39  | 45.157G | 5.580M | 149            |
-| x-ghost  | 64.28        | 96.51 | 97.84       | 93.09   | 92.55  | 93.64  | 41.082G | 4.932M | 117            |
+| x-ghost  | 64.28        | 96.51 | 97.84       | 93.09   | 92.55  | 93.64  | 41.082G | 4.932M | 109            |
+
+
+
+
 

@@ -344,7 +344,7 @@ class YOLOPAFPN_Ghost(YOLOPAFPN_P2):
 
 class YOLOPAFPN_ShuffleNet(YOLOPAFPN_P2):
     """
-            new backbone with shuffle net
+            new backbone with shuffle net v2
         """
 
     def __init__(

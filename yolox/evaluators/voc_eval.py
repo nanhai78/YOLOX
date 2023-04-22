@@ -12,27 +12,29 @@ from yolox.data.datasets.voc_classes import VOC_CLASSES
 import numpy as np
 
 
+# xml有两张形式:
+# 1. object->others->(others1, others2)
+# 2. object->(部位1,部位2）->类别
 def parse_rec(filename):
     """Parse a PASCAL VOC xml file"""
     tree = ET.parse(filename)
     objects = []
-    for obj in tree.findall("object"):
-        if obj.find("name").text not in VOC_CLASSES:
-            continue
-        obj_struct = {}
-        obj_struct["name"] = obj.find("name").text
-        obj_struct["pose"] = obj.find("pose").text
-        obj_struct["truncated"] = int(obj.find("truncated").text)
-        obj_struct["difficult"] = int(obj.find("difficult").text)
-        bbox = obj.find("bndbox")
-        obj_struct["bbox"] = [
-            int(bbox.find("xmin").text),
-            int(bbox.find("ymin").text),
-            int(bbox.find("xmax").text),
-            int(bbox.find("ymax").text),
-        ]
-        objects.append(obj_struct)
-
+    for obj_1 in tree.findall("object"):  # 第一级目录
+        for obj_2 in obj_1.findall('*'):  # 第二级目录
+            for obj_3 in obj_2.findall('*'):  # 第三级目录
+                obj_struct = {}
+                obj_struct["name"] = "others"  # 节点名就是目标的名称
+                obj_struct["pose"] = 'Unspecified'
+                obj_struct["truncated"] = 0
+                obj_struct["difficult"] = 0
+                bbox = obj_3.find("bndbox")
+                obj_struct["bbox"] = [
+                    int(bbox.find("xmin").text),
+                    int(bbox.find("ymin").text),
+                    int(bbox.find("xmax").text),
+                    int(bbox.find("ymax").text),
+                ]
+                objects.append(obj_struct)
     return objects
 
 
@@ -71,13 +73,13 @@ def voc_ap(rec, prec, use_07_metric=False):
 
 
 def voc_eval(
-    detpath,
-    annopath,
-    imagesetfile,
-    classname,
-    cachedir,
-    ovthresh=0.5,
-    use_07_metric=False,
+        detpath,
+        annopath,
+        imagesetfile,
+        classname,
+        cachedir,
+        ovthresh=0.5,
+        use_07_metric=False,
 ):
     # first load gt
     if not os.path.isdir(cachedir):
@@ -156,8 +158,8 @@ def voc_eval(
 
             # union
             uni = (
-                (bb[2] - bb[0] + 1.0) * (bb[3] - bb[1] + 1.0)
-                + (BBGT[:, 2] - BBGT[:, 0] + 1.0) * (BBGT[:, 3] - BBGT[:, 1] + 1.0) - inters
+                    (bb[2] - bb[0] + 1.0) * (bb[3] - bb[1] + 1.0)
+                    + (BBGT[:, 2] - BBGT[:, 0] + 1.0) * (BBGT[:, 3] - BBGT[:, 1] + 1.0) - inters
             )
 
             overlaps = inters / uni
@@ -183,7 +185,7 @@ def voc_eval(
     prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
     ap = voc_ap(rec, prec, use_07_metric)
 
-    f1 = 2 * prec * rec / (prec + rec + 1e-16)    # 计算不同置信度下的f1分数
+    f1 = 2 * prec * rec / (prec + rec + 1e-16)  # 计算不同置信度下的f1分数
     max_index = f1.argmax()  # 返回f1分数最大时的索引
     # 增加了在当前IOU下各类别的f1分数和recall和precision
     return rec, prec, ap, f1[max_index], rec[max_index], prec[max_index]

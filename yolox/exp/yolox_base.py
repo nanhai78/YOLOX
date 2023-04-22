@@ -31,7 +31,7 @@ class Exp(BaseExp):
         # set worker to 4 for shorter dataloader init time
         # If your training process cost many memory, reduce this value.
         self.data_num_workers = 8
-        self.input_size = (768, 416)  # (height, width)
+        self.input_size = (1280, 640)  # (height, width)
         # Actual multiscale ranges: [640 - 5 * 32, 640 + 5 * 32].
         # To disable multiscale training, set the value to 0.
         self.multiscale_range = 0
@@ -101,7 +101,7 @@ class Exp(BaseExp):
 
         # -----------------  testing config ------------------ #
         # output image size during evaluation/test
-        self.test_size = (768, 416)
+        self.test_size = (1280, 640)
         # confidence threshold during evaluation/test,
         # boxes whose scores are less than test_conf will be filtered
         self.test_conf = 0.001
@@ -109,7 +109,7 @@ class Exp(BaseExp):
         self.nmsthre = 0.65
 
     def get_model(self):
-        from yolox.models import YOLOX, YOLOPAFPN_Ghost, YOLOXHead
+        from yolox.models import YOLOX, YOLOPAFPN_P2, YOLOXHead
 
         def init_yolo(M):
             for m in M.modules():
@@ -120,7 +120,7 @@ class Exp(BaseExp):
         if getattr(self, "model", None) is None:
             in_channels = [256, 256, 512]  # in channels for head
             strides = [4, 8, 16]  # p2 p3 p4
-            backbone = YOLOPAFPN_Ghost(self.depth, self.width, act=self.act)
+            backbone = YOLOPAFPN_P2(self.depth, self.width, act=self.act)
             head = YOLOXHead(self.num_classes, self.width, strides=strides, in_channels=in_channels, act=self.act)
             self.model = YOLOX(backbone, head)
 

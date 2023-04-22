@@ -47,6 +47,13 @@ parse_rec处修改xml文件的加载路径
 3.增加f1 recall precision的输出
 ```
 
+6. voc.py修改
+
+```python
+1. AnnotationTransform下的call函数要修改
+2. 
+```
+
 
 
 # val的流程

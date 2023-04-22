@@ -49,31 +49,32 @@ class AnnotationTransform(object):
             a list containing lists of bounding boxes  [bbox coords, class name]
         """
         res = np.empty((0, 5))
+
         for obj in target.iter("object"):
-            name = obj.find("name").text.strip()
-            if name not in VOC_CLASSES:
-                continue
-            difficult = obj.find("difficult")
-            if difficult is not None:
-                difficult = int(difficult.text) == 1
-            else:
-                difficult = False
-            if not self.keep_difficult and difficult:
-                continue
+            for obj_2 in obj.findall('*'):  # 第二级目录
+                for obj_3 in obj_2.findall('*'):  # 第三级目录
+                    name = "others"
+                    difficult = obj.find("difficult")
+                    if difficult is not None:
+                        difficult = int(difficult.text) == 1
+                    else:
+                        difficult = False
+                    if not self.keep_difficult and difficult:
+                        continue
 
-            bbox = obj.find("bndbox")
+                    bbox = obj_3.find("bndbox")
 
-            pts = ["xmin", "ymin", "xmax", "ymax"]
-            bndbox = []
-            for i, pt in enumerate(pts):
-                cur_pt = int(float(bbox.find(pt).text)) - 1
-                # scale height or width
-                # cur_pt = cur_pt / width if i % 2 == 0 else cur_pt / height
-                bndbox.append(cur_pt)
-            label_idx = self.class_to_ind[name]
-            bndbox.append(label_idx)
-            res = np.vstack((res, bndbox))  # [xmin, ymin, xmax, ymax, label_ind]
-            # img_id = target.find('filename').text[:-4]
+                    pts = ["xmin", "ymin", "xmax", "ymax"]
+                    bndbox = []
+                    for i, pt in enumerate(pts):
+                        cur_pt = int(float(bbox.find(pt).text)) - 1
+                        # scale height or width
+                        # cur_pt = cur_pt / width if i % 2 == 0 else cur_pt / height
+                        bndbox.append(cur_pt)
+                    label_idx = self.class_to_ind[name]
+                    bndbox.append(label_idx)
+                    res = np.vstack((res, bndbox))  # [xmin, ymin, xmax, ymax, label_ind]
+                    # img_id = target.find('filename').text[:-4]
 
         width = int(target.find("size").find("width").text)
         height = int(target.find("size").find("height").text)
@@ -119,7 +120,7 @@ class VOCDetection(CacheDataset):
         self.target_transform = target_transform
         self.name = dataset_name
         self._annopath = os.path.join("%s", "Annotations", "%s.xml")
-        self._imgpath = os.path.join("%s", "jpgimages", "%s.jpg")
+        self._imgpath = os.path.join("%s", "jpgimages", "%s.png")
         self._classes = VOC_CLASSES
         self.cats = [
             {"id": idx, "name": val} for idx, val in enumerate(VOC_CLASSES)

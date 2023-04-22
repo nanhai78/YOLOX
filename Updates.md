@@ -51,7 +51,7 @@ parse_rec处修改xml文件的加载路径
 
 ```python
 1. AnnotationTransform下的call函数要修改
-2. 
+2. _do_python_eval函数下要修改加载标签的地址
 ```
 
 

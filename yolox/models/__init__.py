@@ -7,5 +7,5 @@ from .darknet import CSPDarknet, Darknet, CSPDarknet_BoT
 from .losses import IOUloss
 from .yolo_fpn import YOLOFPN
 from .yolo_head import YOLOXHead
-from .yolo_pafpn import YOLOPAFPN, YOLOPAFPN_P2, YOLOPAFPN_Ghost
+from .yolo_pafpn import YOLOPAFPN, YOLOPAFPN_Ghost, YOLOPAFPN_rP5
 from .yolox import YOLOX

@@ -106,15 +106,15 @@ iou=0.1   f1=94.82 	rec=94.72 	prec=94.93
 ```
 
 ```
-backbone：CSPDarknet Neck：只去掉p5；在输出位置添加cbam模块
-```
-
-```
 backbone：CSPDarknet_Ghost  
 Neck: P2;去掉了P5;在输出位置添加了cbam模块 其中的C3模块也变成了C3_Ghost, BaseConv变成了Ghost_Conv
-
+```
 
 ```
+backbone：CSPDarknet Neck：去掉了P5
+```
+
+大库上：
 
 | models   | ap(0.5:0.95) | ap0.5 | ap(0.1:0.5) | f1(0.5) | r(0.5) | p(0.5) | flops   | para   | speed(cpu)(ms) |
 | -------- | ------------ | ----- | ----------- | ------- | ------ | ------ | ------- | ------ | -------------- |

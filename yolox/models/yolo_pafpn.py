@@ -362,8 +362,8 @@ class YOLOPAFPN_ShuffleNet(YOLOPAFPN_P2):
 
 class YOLOPAFPN_rP5(nn.Module):
     """
-        cspDarkNet without of path 5.
-        """
+        CSPDarkNet without of path 5.
+    """
 
     def __init__(
             self,
@@ -432,7 +432,7 @@ class YOLOPAFPN_rP5(nn.Module):
         #  backbone
         out_features = self.backbone(input)
         features = [out_features[f] for f in self.in_features]
-        [x2, x1, x0] = features  # dark3, dark4
+        [x2, x1, x0] = features  # dark3, dark4, dark5
 
         fpn_out0 = self.lateral_conv0(x0)  # 1024->512/32
         f_out0 = self.upsample(fpn_out0)  # 512/16
@@ -447,11 +447,6 @@ class YOLOPAFPN_rP5(nn.Module):
         p_out1 = self.bu_conv2(pan_out2)  # 256->256/16
         p_out1 = torch.cat([p_out1, fpn_out1], 1)  # 256->512/16
         pan_out1 = self.C3_n3(p_out1)  # 512->512/16
-
-        # no dark5
-        # p_out0 = self.bu_conv1(pan_out1)  # 512->512/32
-        # p_out0 = torch.cat([p_out0, fpn_out0], 1)  # 512->1024/32
-        # pan_out0 = self.C3_n4(p_out0)  # 1024->1024/32
 
         outputs = (pan_out2, pan_out1)
         return outputs

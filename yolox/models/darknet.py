@@ -254,11 +254,7 @@ class ShuffleNet(nn.Module):
     """
 
     def __init__(self,
-                 depth=1.0,
-                 width=1.0,
                  out_features=("dark3", "dark4", "dark5"),
-                 depthwise=False,
-                 act="silu",
                  ):
         super(ShuffleNet, self).__init__()
         base_depth = [1, 3, 7, 3]

@@ -220,8 +220,6 @@ class Focus(nn.Module):
 
 
 # -----------------------some new module---------------------------------------------
-
-
 class ChannelAttention(nn.Module):
     # Channel-attention module https://github.com/open-mmlab/mmdetection/tree/v3.0.0rc1/configs/rtmdet
     def __init__(self, channels: int) -> None:

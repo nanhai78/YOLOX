@@ -1,14 +1,14 @@
 import torch
 
 from yolox.models.yolo_head import YOLOXHead
-from yolox.models.yolo_pafpn import YOLOPAFPN_rP5
+from yolox.models.yolo_pafpn import YOLOPAFPN_P2
 from yolox.models.yolox import YOLOX
 
 from thop import clever_format, profile
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-backbone = YOLOPAFPN_rP5(depth=0.33, width=0.5)
-head = YOLOXHead(1, width=0.5, strides=[8, 16], in_channels=[256, 512])
+backbone = YOLOPAFPN_P2(depth=0.33, width=0.5)
+head = YOLOXHead(1, width=0.5, strides=[4, 8, 16], in_channels=[256, 256, 512])
 model = YOLOX(backbone, head)
 model = model.eval()
 model = model.to(device)
@@ -23,7 +23,7 @@ flops = flops * 2
 flops, params = clever_format([flops, params], "%.3f")
 print('Total GFLOPS: %s' % (flops))
 print('Total params: %s' % (params))
-print(model)
+# print(model)
 
 '''
     s模型初始参数量和浮点数：
@@ -34,11 +34,7 @@ print(model)
     Total GFLOPS: 20.775G
     Total params: 8.938M
     
-    # backbone->CSPDarknet_BoT(Bot, GAM)   neck->P2(p2 cbam)
-    Total GFLOPS: 53.464G
-    Total params: 7.263M
-    
-    # backbone->CSPDarknet  neck->P2(p2 cbam)
+    # backbone->CSPDarknet  neck->P2(p2 cbam rP5)
     Total GFLOPS: 49.605G
     Total params: 7.553M
     

@@ -8,7 +8,7 @@ from thop import clever_format, profile
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 backbone = YOLO_Shuffle()
-head = YOLOXHead_Light(1, width=0.5, strides=[8, 16, 32], in_channels=[128, 256, 512])
+head = YOLOXHead_Light(1, width=0.5, strides=[8, 16], in_channels=[128, 256])
 model = YOLOX(backbone, head)
 model = model.eval()
 model = model.to(device)

@@ -23,6 +23,8 @@ flops = flops * 2
 flops, params = clever_format([flops, params], "%.3f")
 print('Total GFLOPS: %s' % (flops))
 print('Total params: %s' % (params))
+y = model(dummy_input)
+print(y.shape)
 # print(model)
 
 '''

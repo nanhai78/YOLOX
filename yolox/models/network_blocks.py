@@ -502,6 +502,17 @@ class Shuffle_Block(nn.Module):
 
 # ———————————————————————————shuffle block end——————————————————————————
 
+# build repvgg block
+
+def conv_bn(in_channels, out_channels, kernel_size, stride, padding, groups=1):
+    result = nn.Sequential()
+    result.add_module('conv', nn.Conv2d(in_channels=in_channels, out_channels=out_channels,
+                                        kernel_size=kernel_size, stride=stride, padding=padding, groups=groups,
+                                        bias=False))
+    result.add_module('bn', nn.BatchNorm2d(num_features=out_channels))
+
+    return result
+
 
 class SEBlock(nn.Module):
 

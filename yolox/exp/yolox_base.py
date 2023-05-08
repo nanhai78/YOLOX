@@ -109,7 +109,7 @@ class Exp(BaseExp):
         self.nmsthre = 0.65
 
     def get_model(self):
-        from yolox.models import YOLOX, YOLO_Shuffle, YOLOXHead_Light
+        from yolox.models import YOLOX, YOLO_Repvgg, YOLOXHead
 
         def init_yolo(M):
             for m in M.modules():
@@ -118,10 +118,10 @@ class Exp(BaseExp):
                     m.momentum = 0.03
 
         if getattr(self, "model", None) is None:
-            in_channels = [128, 256]  # in channels for head
+            in_channels = [256, 256]  # in channels for head
             strides = [8, 16]  # p2 p3 p4
-            backbone = YOLO_Shuffle()
-            head = YOLOXHead_Light(self.num_classes, self.width, strides=strides, in_channels=in_channels, act=self.act)
+            backbone = YOLO_Repvgg(self.depth, self.width)
+            head = YOLOXHead(self.num_classes, self.width, strides=strides, in_channels=in_channels, act=self.act)
             self.model = YOLOX(backbone, head)
 
         self.model.apply(init_yolo)

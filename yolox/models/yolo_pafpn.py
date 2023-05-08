@@ -5,8 +5,8 @@
 import torch
 import torch.nn as nn
 
-from .darknet import CSPDarknet, CSPDarknet_Ghost, ShuffleNet
-from .network_blocks import BaseConv, CSPLayer, DWConv, CBAM, GhostConv, C3Ghost
+from .darknet import CSPDarknet, ShuffleNet, CSPDarknet_Repvgg
+from .network_blocks import BaseConv, CSPLayer, DWConv, CBAM, GhostConv
 
 
 class YOLOPAFPN(nn.Module):
@@ -308,7 +308,7 @@ class YOLOPAFPN_rP5(nn.Module):
             act=act,
         )
 
-        # no dark5
+        # no p5
 
     def forward(self, input):
         """
@@ -433,3 +433,60 @@ class YOLO_Shuffle(nn.Module):
 
         outputs = (pan_out2, pan_out1)  # p3(64) p4(128) p5(256)
         return outputs
+
+
+class YOLO_Repvgg(YOLOPAFPN_rP5):
+    def __init__(
+            self,
+            depth=1.0,
+            width=1.0,
+            in_features=("dark3", "dark4", "dark5"),
+            in_channels=[128, 256, 512],
+            depthwise=False,
+            act="silu",
+    ):
+        super(YOLO_Repvgg, self).__init__(depth, width, in_features, in_channels, depthwise, act)
+
+        self.backbone = CSPDarknet_Repvgg(depth, width, depthwise=depthwise, act=act)
+        self.in_features = in_features
+        self.in_channels = in_channels
+        Conv = DWConv if depthwise else BaseConv
+
+        self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
+        self.lateral_conv0 = BaseConv(
+            in_channels[2], in_channels[0], 1, 1, act=act
+        )  # 512->128
+        self.C3_p4 = CSPLayer(
+            in_channels[0] + in_channels[1],
+            in_channels[0],
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )  # 384->128
+
+        self.reduce_conv1 = BaseConv(
+            in_channels[0], in_channels[0], 1, 1, act=act
+        )  # 128->128
+        self.C3_p3 = CSPLayer(
+            in_channels[1],
+            in_channels[0],
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )  # 128 + 128 -> 128
+
+        # bottom-up conv
+        self.bu_conv2 = Conv(
+            in_channels[0], in_channels[0], 3, 2, act=act
+        )  # 128->128
+        self.C3_n3 = CSPLayer(
+            in_channels[1],
+            in_channels[0],
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )
+        # no p5

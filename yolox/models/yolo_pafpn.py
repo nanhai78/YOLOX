@@ -203,8 +203,8 @@ class YOLOPAFPN_P2(nn.Module):
 
         # removed p5
 
-        # for ch in [256, 256, 512]:
-        #     self.cbams.append(CBAM(int(ch * width)))
+        for ch in [256, 256, 512]:
+            self.cbams.append(CBAM(int(ch * width)))
 
     def forward(self, input):
         out_features = self.backbone(input)
@@ -226,19 +226,19 @@ class YOLOPAFPN_P2(nn.Module):
         f_out2 = self.upsample(fpn_out2)  # 128/4
         f_out2 = torch.cat([f_out2, x3], 1)  # 128->256/4
         pan_out3 = self.C3_p2(f_out2)  # 256->256/4  p2_out
-        # pan_out3 = self.cbams[0](pan_out3)
+        pan_out3 = self.cbams[0](pan_out3)
 
         # g4 256->256/8 addition
         p_out2 = self.bu_conv3(pan_out3)  # 128/8
         p_out2 = torch.cat([p_out2, fpn_out2], 1)  # 128->256/8
         pan_out2 = self.C3_n2(p_out2)  # 256/8  p3_out
-        # pan_out2 = self.cbams[1](pan_out2)
+        pan_out2 = self.cbams[1](pan_out2)
 
         # g5 256->512/16
         p_out1 = self.bu_conv2(pan_out2)  # 256->256/16
         p_out1 = torch.cat([p_out1, fpn_out1], 1)  # 256->512/16
         pan_out1 = self.C3_n3(p_out1)  # 512->512/16 p4_out
-        # pan_out1 = self.cbams[2](pan_out1)
+        pan_out1 = self.cbams[2](pan_out1)
 
         # removed p5
 

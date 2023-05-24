@@ -138,7 +138,6 @@ class YOLOPAFPN_P2(nn.Module):
         Conv = DWConv if depthwise else BaseConv
 
         self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
-        self.cbams = nn.ModuleList()
 
         self.lateral_conv0 = BaseConv(
             int(in_channels[3] * width), int(in_channels[2] * width), 1, 1, act=act  # 1024 -> 512
@@ -203,6 +202,7 @@ class YOLOPAFPN_P2(nn.Module):
 
         # removed p5
 
+        self.cbams = nn.ModuleList()
         for ch in [256, 256, 512]:
             self.cbams.append(CBAM(int(ch * width)))
 
@@ -509,11 +509,11 @@ class YOLO_Rep_P2(YOLOPAFPN_P2):
         self.cbams = nn.ModuleList()
 
         self.lateral_conv0 = BaseConv(
-            in_channels[3], in_channels[1], 1, 1, act=act
+            512, 128, 1, 1, act=act
         )  # 512->128
         self.C3_p4 = CSPLayer(
-            in_channels[1] + in_channels[2],
-            in_channels[1],
+            384,
+            128,
             round(3 * depth),
             False,
             depthwise=depthwise,
@@ -521,11 +521,11 @@ class YOLO_Rep_P2(YOLOPAFPN_P2):
         )  # 384 -> 128
 
         self.reduce_conv1 = BaseConv(
-            in_channels[1], in_channels[0], 1, 1, act=act  # 128->64
+            128, 64, 1, 1, act=act  # 128->64
         )
         self.C3_p3 = CSPLayer(
-            in_channels[0] + in_channels[1],
-            in_channels[0],
+            192,
+            64,
             round(3 * depth),
             False,
             depthwise=depthwise,
@@ -534,23 +534,23 @@ class YOLO_Rep_P2(YOLOPAFPN_P2):
 
         # add p2
         self.reduce_conv2 = BaseConv(
-            in_channels[0], in_channels[0], 1, 1, act=act  # 256 -> 256
+            64, 64, 1, 1, act=act  # 256 -> 256
         )
         self.C3_p2 = CSPLayer(
-            in_channels[0] * 2,
-            in_channels[0],  # 256
+            128,
+            64,  # 256
             round(3 * depth),
             False,
-            depthwise=depthwise,
+            depthwise=True,
             act=act,
         )  # 128->64
 
-        self.bu_conv3 = Conv(
-            in_channels[0], in_channels[0], 3, 2, act=act  # 64->64
+        self.bu_conv3 = DWConv(
+            64, 64, 3, 2, act=act  # 64->64
         )
         self.C3_n2 = CSPLayer(
-            in_channels[0] * 2,
-            in_channels[1],
+            128,
+            128,
             round(3 * depth),
             False,
             depthwise=depthwise,
@@ -558,11 +558,11 @@ class YOLO_Rep_P2(YOLOPAFPN_P2):
         )  # 512 -> 256 p3_out
 
         self.bu_conv2 = Conv(
-            in_channels[1], in_channels[1], 3, 2, act=act  # 32/16 256
+            128, 128, 3, 2, act=act  # 32/16 256
         )
         self.C3_n3 = CSPLayer(
-            in_channels[1] + in_channels[0],
-            in_channels[1],
+            192,
+            128,
             round(3 * depth),
             False,
             depthwise=depthwise,

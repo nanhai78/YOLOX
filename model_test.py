@@ -1,18 +1,17 @@
 import torch
 
 from yolox.models.yolo_head import YOLOXHead, YOLOXHead_Light
-from yolox.models.yolo_pafpn import YOLOPAFPN_P2, YOLO_Rep_P2, YOLO_Repvgg
+from yolox.models.yolo_pafpn import YOLOPAFPN_P2
 from yolox.models.yolox import YOLOX
 
 from thop import clever_format, profile
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-backbone = YOLO_Rep_P2(0.33, 0.5)
-head = YOLOXHead(1, width=0.5, strides=[4, 8, 16], in_channels=[128, 256, 256])
+backbone = YOLOPAFPN_P2(0.33, 0.5)
+head = YOLOXHead(1, width=0.5, strides=[4, 8, 16], in_channels=[256, 256, 512])
 model = YOLOX(backbone, head)
 model = model.eval()
 model = model.to(device)
-
 
 input_shape = [768, 416]
 # summary(model, (9, 3, input_shape[0], input_shape[1]))

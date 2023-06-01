@@ -337,7 +337,7 @@ class YOLOPAFPN_P2(nn.Module):
             depthwise=False,
             act="silu",
     ):
-        super(YOLOPAFPN_P2_Cbam, self).__init__()
+        super(YOLOPAFPN_P2, self).__init__()
         self.backbone = CSPDarknet(depth, width, in_features, depthwise, act)  # 替换主干网络
         self.in_features = in_features
         self.in_channels = in_channels

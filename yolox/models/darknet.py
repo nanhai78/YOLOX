@@ -314,6 +314,7 @@ class CSPDarknet_Repvgg(CSPDarknet):
 
         # stem
         self.stem = BaseConv(3, base_channels, 6, 2)
+        # self.stem = Focus(3, base_channels, ksize=3, act=act)  # 2/64
 
         # dark2
         self.dark2 = nn.Sequential(

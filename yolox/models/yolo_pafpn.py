@@ -205,7 +205,7 @@ class YOLOPAFPN_rP5(nn.Module):
         return outputs
 
 
-class YOLOPAFPN_P2(nn.Module):
+class YOLOPAFPN_P2_temp(nn.Module):
     """
     增加P2检测层, 移除检测层P5
     """
@@ -323,7 +323,7 @@ class YOLOPAFPN_P2(nn.Module):
         return outputs
 
 
-class YOLOPAFPN_P2_Cbam(nn.Module):
+class YOLOPAFPN_P2(nn.Module):
     """
     历史原因，改了类名，但是会导致权重也要改，所以在使用改回YOLOPAFPN_P2
     """

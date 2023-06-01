@@ -465,7 +465,7 @@ class YOLO_Repvgg(YOLOPAFPN_rP5):
             depthwise=False,
             act="silu",
     ):
-        super(YOLO_rP5_Rep, self).__init__(depth, width, in_features, in_channels, depthwise, act)
+        super(YOLO_Repvgg, self).__init__(depth, width, in_features, in_channels, depthwise, act)
 
         self.backbone = CSPDarknet_Repvgg(depth, width, depthwise=depthwise, act=act)
         self.in_features = in_features

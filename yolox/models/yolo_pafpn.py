@@ -205,7 +205,7 @@ class YOLOPAFPN_rP5(nn.Module):
         return outputs
 
 
-class YOLOPAFPN_P2_temp(nn.Module):
+class YOLOPAFPN_P2(nn.Module):
     """
     增加P2检测层, 移除检测层P5
     """
@@ -323,7 +323,7 @@ class YOLOPAFPN_P2_temp(nn.Module):
         return outputs
 
 
-class YOLOPAFPN_P2(nn.Module):
+class YOLOPAFPN_P2_Cbam(nn.Module):
     """
     历史原因，改了类名，但是会导致权重也要改，所以在使用改回YOLOPAFPN_P2
     """
@@ -337,7 +337,7 @@ class YOLOPAFPN_P2(nn.Module):
             depthwise=False,
             act="silu",
     ):
-        super(YOLOPAFPN_P2, self).__init__()
+        super(YOLOPAFPN_P2_Cbam, self).__init__()
         self.backbone = CSPDarknet(depth, width, in_features, depthwise, act)  # 替换主干网络
         self.in_features = in_features
         self.in_channels = in_channels
@@ -451,9 +451,10 @@ class YOLOPAFPN_P2(nn.Module):
         return outputs
 
 
-class YOLO_rP5_Rep(YOLOPAFPN_rP5):
+class YOLO_Repvgg(YOLOPAFPN_rP5):
     """
     原类名为YOLO_Repvgg，如要使用权重，改回名称
+    现类名YOLO_rP5_Rep
     """
     def __init__(
             self,

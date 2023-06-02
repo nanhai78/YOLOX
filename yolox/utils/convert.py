@@ -27,8 +27,8 @@ if __name__ == '__main__':
     head = YOLOXHead(num_classes, width, strides=strides, in_channels=in_channels)
     train_model = YOLOX(backbone, head)
     # 加载权重
-    load = ""
-    save = ""
+    load = "/home/gli/workspace_DL/gli/fork/YOLOX/weight/light_models/x_rP5_Rep.pth"
+    save = "/home/gli/workspace_DL/gli/fork/YOLOX/weight/light_models/x_rP5_Rep_fuse.pth"
 
     if os.path.isfile(load):
         print("=> loading checkpoint '{}'".format(load))

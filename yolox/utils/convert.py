@@ -11,7 +11,11 @@ def repvgg_model_convert(model: torch.nn.Module, save_path=None, do_copy=True):
         if hasattr(module, 'switch_to_deploy'):
             module.switch_to_deploy()
     if save_path is not None:
-        torch.save(model.state_dict(), save_path)
+        ckpt = {
+            "model": model.state_dict()
+        }
+        torch.save(ckpt, save_path)
+    print("=> fuse finish '{}'".format(load))
     return model
 
 
@@ -30,10 +34,14 @@ if __name__ == '__main__':
     load = "/home/gli/workspace_DL/gli/fork/YOLOX/weight/light_models/x_rP5_Rep.pth"
     save = "/home/gli/workspace_DL/gli/fork/YOLOX/weight/light_models/x_rP5_Rep_fuse.pth"
 
+    # test
+    ckpt1 = torch.load(load)
+    ckpt2 = torch.load(save)
+
     if os.path.isfile(load):
         print("=> loading checkpoint '{}'".format(load))
         ckpt = torch.load(load)
-        train_model.load_state_dict(ckpt)  # 将权重加载到训练好的模型上
+        train_model.load_state_dict(ckpt["model"])  # 将权重加载到训练好的模型上
         repvgg_model_convert(train_model, save)  # 模型进行转换，然后重新保存
     else:
         print("=> no checkpoint found at '{}'".format(load))

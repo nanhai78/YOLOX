@@ -304,6 +304,7 @@ class CSPDarknet_Repvgg(CSPDarknet):
             out_features=("dark3", "dark4", "dark5"),
             depthwise=False,
             act="silu",
+            deploy=False
     ):
         super(CSPDarknet_Repvgg, self).__init__(dep_mul, wid_mul, out_features, depthwise, act)
         assert out_features, "please provide output features of Darknet"
@@ -318,7 +319,7 @@ class CSPDarknet_Repvgg(CSPDarknet):
 
         # dark2
         self.dark2 = nn.Sequential(
-            RepVGGBlock(base_channels, base_channels * 2, 3, 2),
+            RepVGGBlock(base_channels, base_channels * 2, 3, 2, deploy=deploy),
             CSPLayer(
                 base_channels * 2,
                 base_channels * 2,
@@ -330,7 +331,7 @@ class CSPDarknet_Repvgg(CSPDarknet):
 
         # dark3
         self.dark3 = nn.Sequential(
-            RepVGGBlock(base_channels * 2, base_channels * 4, 3, 2),
+            RepVGGBlock(base_channels * 2, base_channels * 4, 3, 2, deploy=deploy),
             CSPLayer(
                 base_channels * 4,
                 base_channels * 4,
@@ -342,7 +343,7 @@ class CSPDarknet_Repvgg(CSPDarknet):
 
         # dark4
         self.dark4 = nn.Sequential(
-            RepVGGBlock(base_channels * 4, base_channels * 8, 3, 2),
+            RepVGGBlock(base_channels * 4, base_channels * 8, 3, 2, deploy=deploy),
             CSPLayer(
                 base_channels * 8,
                 base_channels * 8,
@@ -354,7 +355,7 @@ class CSPDarknet_Repvgg(CSPDarknet):
 
         # dark5
         self.dark5 = nn.Sequential(
-            RepVGGBlock(base_channels * 8, base_channels * 16, 3, 2),
+            RepVGGBlock(base_channels * 8, base_channels * 16, 3, 2, deploy=deploy),
             SPPBottleneck(base_channels * 16, base_channels * 16, activation=act),
             CSPLayer(
                 base_channels * 16,

@@ -120,7 +120,7 @@ class Exp(BaseExp):
         if getattr(self, "model", None) is None:
             in_channels = [256, 256]  # in channels for head
             strides = [8, 16]  # p2 p3 p4
-            backbone = YOLO_Repvgg(self.depth, self.width)
+            backbone = YOLO_Repvgg(self.depth, self.width, deploy=True)
             head = YOLOXHead(self.num_classes, self.width, strides=strides, in_channels=in_channels, act=self.act)
             self.model = YOLOX(backbone, head)
 

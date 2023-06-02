@@ -464,10 +464,11 @@ class YOLO_Repvgg(YOLOPAFPN_rP5):
             in_channels=[128, 256, 512],
             depthwise=False,
             act="silu",
+            deploy=False
     ):
         super(YOLO_Repvgg, self).__init__(depth, width, in_features, in_channels, depthwise, act)
 
-        self.backbone = CSPDarknet_Repvgg(depth, width, depthwise=depthwise, act=act)
+        self.backbone = CSPDarknet_Repvgg(depth, width, depthwise=depthwise, act=act, deploy=deploy)
         self.in_features = in_features
         self.in_channels = in_channels
         Conv = DWConv if depthwise else BaseConv

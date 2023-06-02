@@ -1,5 +1,5 @@
 import torch
-from yolox.models import YOLOX, YOLOPAFPN, YOLOXHead
+from yolox.models import YOLOX, YOLO_Repvgg, YOLOXHead
 import os
 
 
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     strides = [8, 16]
     in_channels = [256, 256]
 
-    backbone = YOLOPAFPN(depth, width)
+    backbone = YOLO_Repvgg(depth, width)
     head = YOLOXHead(num_classes, width, strides=strides, in_channels=in_channels)
     train_model = YOLOX(backbone, head)
     # 加载权重

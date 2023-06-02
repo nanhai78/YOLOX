@@ -34,10 +34,6 @@ if __name__ == '__main__':
     load = "/home/gli/workspace_DL/gli/fork/YOLOX/weight/light_models/x_rP5_Rep.pth"
     save = "/home/gli/workspace_DL/gli/fork/YOLOX/weight/light_models/x_rP5_Rep_fuse.pth"
 
-    # test
-    ckpt1 = torch.load(load)
-    ckpt2 = torch.load(save)
-
     if os.path.isfile(load):
         print("=> loading checkpoint '{}'".format(load))
         ckpt = torch.load(load)

@@ -31,6 +31,8 @@ from yolox.utils import (
     setup_logger,
     synchronize
 )
+from yolox.models.network_blocks import Bottleneck
+import torch.nn as nn
 
 
 class Trainer:
@@ -80,6 +82,16 @@ class Trainer:
             self.after_train()
 
     def train_in_epoch(self):
+        # ============================= 添加不参与稀疏训练的bn层 ========================== #
+        if self.exp.sparity:  # 稀疏训练
+            self.ignore_bn_list = []
+            for k, m in self.model.named_modules():
+                if isinstance(m, Bottleneck) and m.use_add:  # 对于带有残差的Bottleneck层不参与稀疏训练
+                    self.ignore_bn_list.append(k.rsplit(".", 2)[0] + ".conv1.bn")  # conv1是不训练
+                    self.ignore_bn_list.append(k + ".conv1.bn")  # bottleneck中的卷积层也不训练
+                    self.ignore_bn_list.append(k + ".conv2.bn")
+        # ============================= 添加不参与稀疏训练的bn层 ========================== #
+
         for self.epoch in range(self.start_epoch, self.max_epoch):
             self.before_epoch()
             self.train_in_iter()
@@ -108,6 +120,17 @@ class Trainer:
 
         self.optimizer.zero_grad()
         self.scaler.scale(loss).backward()
+        # ============================= sparsity training ========================== #
+        # yolov5prune这里的代码有问题，由于c3结构中的conv1要早于Bottleneck层出现，
+        # 所以它在加入ignore_bn_list之前，它的Bn层就被稀疏训练了。
+        # ignore_bn_list应当在训练之前就可以确定下来的，没必要每个iter都计算一次
+        scale_bn = self.exp.sr * (1 - 0.9 * self.epoch / self.exp.max_epoch)
+        if self.exp.sparity:  # 如果稀疏训练
+            for k, m in self.model.named_modules():
+                if isinstance(m, nn.BatchNorm2d) and (k not in self.ignore_bn_list):
+                    m.weight.grad.data.add_(scale_bn * torch.sign(m.weight.data))  # L1
+                    m.bias.grad.data.add_(self.exp.sr * 10 * torch.sign(m.bias.data))  # L1
+        # ============================= sparsity training ========================== #
         self.scaler.step(self.optimizer)
         self.scaler.update()
 

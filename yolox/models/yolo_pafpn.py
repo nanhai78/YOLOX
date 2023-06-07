@@ -558,18 +558,6 @@ class YOLO_Shuffle(nn.Module):
             act=act,
         )
 
-        # bottom-up conv
-        # self.bu_conv1 = BaseConv(
-        #     128, 128, 3, 2, act=act
-        # )
-        # self.C3_n4 = CSPLayer(
-        #     256,
-        #     256,
-        #     1,
-        #     False,
-        #     depthwise=False,
-        #     act=act,
-        # )
 
     def forward(self, input):
         """
@@ -597,10 +585,6 @@ class YOLO_Shuffle(nn.Module):
         p_out1 = self.bu_conv2(pan_out2)  # 256->256/16
         p_out1 = torch.cat([p_out1, fpn_out1], 1)  # 256->512/16
         pan_out1 = self.C3_n3(p_out1)  # 512->512/16
-
-        # p_out0 = self.bu_conv1(pan_out1)  # 512->512/32
-        # p_out0 = torch.cat([p_out0, fpn_out0], 1)  # 512->1024/32
-        # pan_out0 = self.C3_n4(p_out0)  # 1024->1024/32
 
         outputs = (pan_out2, pan_out1)  # p3(64) p4(128) p5(256)
         return outputs

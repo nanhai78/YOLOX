@@ -2,6 +2,10 @@ import torch
 from yolox.models import YOLOX, YOLO_Repvgg, YOLOXHead
 import os
 
+"""
+Rep VGG模块重新融合
+"""
+
 
 def repvgg_model_convert(model: torch.nn.Module, save_path=None, do_copy=True):
     import copy
@@ -34,6 +38,7 @@ if __name__ == '__main__':
     load = "/home/gli/workspace_DL/gli/fork/YOLOX/weight/light_models/x_rP5_Rep.pth"
     save = "/home/gli/workspace_DL/gli/fork/YOLOX/weight/light_models/x_rP5_Rep_fuse.pth"
 
+    # 开始转
     if os.path.isfile(load):
         print("=> loading checkpoint '{}'".format(load))
         ckpt = torch.load(load)

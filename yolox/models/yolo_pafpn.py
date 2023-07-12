@@ -444,8 +444,6 @@ class YOLOPAFPN_P2_Cbam(nn.Module):
         pan_out1 = self.C3_n3(p_out1)  # 512->512/16 p4_out
         pan_out1 = self.cbams[2](pan_out1)
 
-        # removed p5
-
         outputs = (pan_out3, pan_out2, pan_out1)  # (p2,p3,p4)
 
         return outputs

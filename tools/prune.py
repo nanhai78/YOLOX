@@ -1,13 +1,12 @@
 # 剪枝
 import torch
 import torch.nn as nn
+import numpy as np
 from yolox.models.network_blocks import Bottleneck
 
 from_layers = {  # key为当前层，value为上一层的名称
 
 }
-
-
 def get_model(ckpt_files,
               depth,
               width,
@@ -98,14 +97,13 @@ if __name__ == '__main__':
     for key, m in model.named_modules():
         if isinstance(m, nn.BatchNorm2d) and key not in ignore_bn_list:
             model_list[key] = m
-
     bn_weights = gather_bn_weights(model_list)  # bn_weights的shape为所有bn层的channel之和，每个数为bn层的gamma的绝对值
     sorted_bn = torch.sort(bn_weights)[0]  # 对上面的权重进行升序排序
 
     highest_val = []  # 每一层中最高的权重值
     for m in model_list.values():
         highest_val.append(m.weight.data.abs().max().item())
-    highest_val = min(highest_val)  # 每层中最高的gamma中挑选出一个最小的。
+    highest_val = min(highest_val)  # 每层中最高的gamma中挑选出一个最小的。避免剪枝掉所有层
     percent = (sorted_bn == highest_val).nonzero()[0, 0].item() / len(bn_weights)  # 剪枝的百分比
     print(f'Suggested Gamma threshold should be less than {highest_val:.4f}.')
     print(f'The corresponding prune ratio is {percent:.3f}, but you can set higher.')
@@ -117,7 +115,7 @@ if __name__ == '__main__':
     print("=" * 104)
     print(f"|\t{'layer name':<40}{'|':<10}{'origin channels':<20}{'|':<10}{'remaining channels':<20}|")
 
-    mask_dict = {}  # 记录每一层的Bn的是否要被剪枝的mask
+    mask_dict = {}  # 记录每一层的Bn的是否要被剪枝的mask  key:bn_name value: 是否被剪枝的mask
     remain_num = 0  # 记录被保存下来的gamma数量
     for key, m in model.named_modules():
         if isinstance(m, nn.BatchNorm2d):
@@ -127,7 +125,7 @@ if __name__ == '__main__':
                 mask = torch.ones(m.weight.data.size()).cuda()
             mask_dict[key] = mask
             remain_num += int(mask.sum())
-            bn_module.weight.data.mul_(mask)
+            bn_module.weight.data.mul_(mask)  # 将mask乘上原先的权重，将一些gamma置为0
             bn_module.bias.data.mul_(mask)
             # 打印剪枝前的gamma数量和剪枝后的数量
             print(f"|\t{key:<40}{'|':<10}{bn_module.weight.data.size()[0]:<20}{'|':<10}{int(mask.sum()):<20}|")
@@ -137,19 +135,36 @@ if __name__ == '__main__':
     pruned_model = get_prune_model(0.33, 0.5, 1, mask_dict)    # 加载剪枝模型
     # 开始对权重进行剪枝了。
     pruned_model_dict = pruned_model.state_dict()
-    assert pruned_model_dict.keys() == model_dict.keys()  # 两个模型权重名称肯定是一样的。
-    # 开始剪枝
-    for ((key_origin, m_origim), (key_pruned, m_pruned)) in zip(model.named_modules(), pruned_model.named_modules()):
+    assert pruned_model_dict.keys() == model_dict.keys()  # 两个模型权重名称肯定是一样的。"
+    # 对原始模型的权重model_dict->进行剪枝
+    for ((key_origin, m_origin), (key_pruned, m_pruned)) in zip(model.named_modules(), pruned_model.named_modules()):
         assert key_origin == key_pruned
-        bn_name = key_origin.rsplit(".", 2)[0] + ".bn"
-        if isinstance(m_origim, nn.Conv2d) and bn_name in mask_dict.keys():  # 卷积层剪枝，不包括head最后的Conv
-            f_layer = from_layers[bn_name]  # 上一层的bn层
-            if isinstance(f_layer, str):  # 上一层只有一层
-            if isinstance(f_layer, list):  # 上一层有2个层
-            else: # 没有上一层
-        if isinstance(m_origim, nn.Conv2d) and bn_name not in mask_dict.keys():  # 卷积层剪枝，head最后的Conv
+        bn_name = key_origin.rsplit(".", 2)[0] + ".bn"  # conv对应的当前层bn层名字
+        pre_bn_name = from_layers[bn_name]  # 上一层的bn层名字
+        # 卷积层剪枝
+        if isinstance(m_origin, nn.Conv2d) and bn_name in mask_dict.keys():  # 卷积层剪枝，不包括head最后的Conv
+            if isinstance(pre_bn_name, str):  # 上一层只有一层
+                # 【out_idx】：当前层保留的channel idx  【in_idx】上一层保留的channel idx
+                # 根据当前层保留的channel 可以知道滤除哪些滤波器; 根据in_idx可以知道单个滤波器可以剪掉哪些channel
+                out_idx = np.squeeze(np.argwhere(np.asarray(mask_dict[bn_name].cpu().numpy())))
+                in_idx = np.squeeze(np.argwhere(np.asarray(mask_dict[pre_bn_name].cpu().numpy())))
+                w = m_origin.weight.data[:, in_idx, :, :].clone()  # 取出单个滤波器中保留的channel
+                w = w[out_idx, :, :, :].clone()  # 取出保留的滤波器
+                assert len(w.shape) == 4
+                m_pruned.weight.data = w.clone()  # 将剪枝出来的权重放到剪枝模型上
+            if isinstance(pre_bn_name, list):  # 上一层有2个层 比如 C3结构中的conv3
 
-        if isinstance(m_origim, nn.BatchNorm2d):  # BN层剪枝
+                out_idx = np.squeeze(np.argwhere(np.asarray(mask_dict[bn_name].cpu().numpy())))
+
+            else: # 没有上一层 如FOCUS中的conv
+                out_idx = np.squeeze(np.argwhere(np.asarray(mask_dict[bn_name].cpu().numpy())))
+                w = m_pruned.weight.data[out_idx, :, :, :].clone()
+                assert len(w.shape) == 4
+                m_pruned.weight.data = w.clone()
+
+        if isinstance(m_origin, nn.Conv2d) and bn_name not in mask_dict.keys():  # 卷积层剪枝，head最后的Conv
+
+        if isinstance(m_origin, nn.BatchNorm2d):  # BN层剪枝
 
 
     # 保存剪枝后的模型。

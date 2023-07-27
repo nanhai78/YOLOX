@@ -87,7 +87,7 @@ class Trainer:
             self.ignore_bn_list = []
             for k, m in self.model.named_modules():
                 if isinstance(m, Bottleneck) and m.use_add:  # 对于带有残差的Bottleneck层不参与稀疏训练
-                    self.ignore_bn_list.append(k.rsplit(".", 2)[0] + ".conv1.bn")  # conv1是不训练
+                    self.ignore_bn_list.append(k.rsplit(".", 2)[0] + ".conv1.bn")  # conv1不训练
                     self.ignore_bn_list.append(k + ".conv1.bn")  # bottleneck中的卷积层也不训练
                     self.ignore_bn_list.append(k + ".conv2.bn")
         # ============================= 添加不参与稀疏训练的bn层 ========================== #

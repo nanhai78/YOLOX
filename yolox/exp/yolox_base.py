@@ -109,8 +109,8 @@ class Exp(BaseExp):
         self.nmsthre = 0.65
 
         # ------------------addtion config--------------------#
-        self.sparity = False  # 是否稀疏训练
-        self.sr = 0.0001  # L1 normal sparse rate
+        self.sparity = True  # 是否稀疏训练
+        self.sr = 0.0002  # L1 normal sparse rate
 
     def get_model(self):
         from yolox.models import YOLOX, YOLOPAFPN_P2, YOLOXHead

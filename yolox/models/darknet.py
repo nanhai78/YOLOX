@@ -296,7 +296,7 @@ class ShuffleNet(nn.Module):
         return {k: v for k, v in outputs.items() if k in self.out_features}
 
 
-class CSPDarknet_Repvgg(CSPDarknet):
+class CSPDarknet_Rep(CSPDarknet):
     def __init__(
             self,
             dep_mul,
@@ -306,7 +306,7 @@ class CSPDarknet_Repvgg(CSPDarknet):
             act="silu",
             deploy=False
     ):
-        super(CSPDarknet_Repvgg, self).__init__(dep_mul, wid_mul, out_features, depthwise, act)
+        super(CSPDarknet_Rep, self).__init__(dep_mul, wid_mul, out_features, depthwise, act)
         assert out_features, "please provide output features of Darknet"
         self.out_features = out_features
 
@@ -314,8 +314,7 @@ class CSPDarknet_Repvgg(CSPDarknet):
         base_depth = max(round(dep_mul * 3), 1)  # 3
 
         # stem
-        self.stem = BaseConv(3, base_channels, 6, 2)
-        # self.stem = Focus(3, base_channels, ksize=3, act=act)  # 2/64
+        self.stem = Focus(3, base_channels, ksize=3, act=act)  # 2/64
 
         # dark2
         self.dark2 = nn.Sequential(

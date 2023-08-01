@@ -539,17 +539,15 @@ class RepVGGBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3,
                  stride=1, padding=1, dilation=1, groups=1, padding_mode='zeros', deploy=False, use_se=False):
         super(RepVGGBlock, self).__init__()
-        self.deploy = deploy
+        self.deploy = deploy  # for test
         self.groups = groups
         self.in_channels = in_channels
 
         padding_11 = padding - kernel_size // 2
 
-        self.nonlinearity = nn.SiLU()
+        self.nonlinearity = nn.SiLU()  # act
 
-        # self.nonlinearity = nn.ReLU()
-
-        if use_se:
+        if use_se:  # is use se block
             self.se = SEBlock(out_channels, internal_neurons=out_channels // 16)
         else:
             self.se = nn.Identity()

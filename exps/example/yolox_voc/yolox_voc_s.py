@@ -17,7 +17,7 @@ class Exp(MyExp):
         self.mosaic_prob = 1.0
         self.mixup_prob = 0.1
         self.hsv_prob = 1.0
-        self.flip_prob = 0
+        self.flip_prob = 0.5
 
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
 

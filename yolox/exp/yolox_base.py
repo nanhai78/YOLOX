@@ -95,7 +95,7 @@ class Exp(BaseExp):
         self.eval_interval = 5
         # save history checkpoint or not.
         # If set to False, yolox will only save latest and best ckpt.
-        self.save_history_ckpt = True
+        self.save_history_ckpt = False
         # name of experiment
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
 
@@ -109,11 +109,11 @@ class Exp(BaseExp):
         self.nmsthre = 0.65
 
         # ------------------addtion config--------------------#
-        self.sparity = True  # 是否稀疏训练
+        self.sparity = False  # 是否稀疏训练
         self.sr = 0.0002  # L1 normal sparse rate
 
     def get_model(self):
-        from yolox.models import YOLOX, YOLOPAFPN, YOLOXHead
+        from yolox.models import YOLOX, YOLOPAFPN_Rep, YOLOXHead
 
         def init_yolo(M):
             for m in M.modules():
@@ -123,8 +123,10 @@ class Exp(BaseExp):
 
         if getattr(self, "model", None) is None:
             in_channels = [256, 512, 1024]  # in channels for head
+            # in_channels = [256, 256, 512]
             strides = [8, 16, 32]  # p2 p3 p4
-            backbone = YOLOPAFPN(self.depth, self.width)
+            # strides = [4, 8, 16]
+            backbone = YOLOPAFPN_Rep(self.depth, self.width)
             head = YOLOXHead(self.num_classes, self.width, strides=strides, in_channels=in_channels, act=self.act)
             self.model = YOLOX(backbone, head)
 

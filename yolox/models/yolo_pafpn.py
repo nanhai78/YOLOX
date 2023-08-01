@@ -5,8 +5,8 @@
 import torch
 import torch.nn as nn
 
-from .darknet import CSPDarknet, ShuffleNet, CSPDarknet_Repvgg
-from .network_blocks import BaseConv, CSPLayer, DWConv, CBAM, C3Ghost
+from .darknet import CSPDarknet, ShuffleNet, CSPDarknet_Rep
+from .network_blocks import BaseConv, CSPLayer, DWConv, CBAM, C3Ghost, RepVGGBlock
 
 
 class YOLOPAFPN(nn.Module):
@@ -467,7 +467,7 @@ class YOLO_Repvgg(YOLOPAFPN_rP5):
     ):
         super(YOLO_Repvgg, self).__init__(depth, width, in_features, in_channels, depthwise, act)
 
-        self.backbone = CSPDarknet_Repvgg(depth, width, depthwise=depthwise, act=act, deploy=deploy)
+        self.backbone = CSPDarknet_Rep(depth, width, depthwise=depthwise, act=act, deploy=deploy)
         self.in_features = in_features
         self.in_channels = in_channels
         Conv = DWConv if depthwise else BaseConv
@@ -510,163 +510,6 @@ class YOLO_Repvgg(YOLOPAFPN_rP5):
             act=act,
         )  # 256->128
 
-
-class YOLO_Shuffle(nn.Module):
-    def __init__(self,
-                 in_features=("dark3", "dark4", "dark5"),
-                 act="silu",
-                 ):
-        super(YOLO_Shuffle, self).__init__()
-        self.backbone = ShuffleNet()
-        self.in_features = in_features
-        # p3(120) p4(232) p5(464)
-        self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
-        self.lateral_conv0 = BaseConv(
-            464, 128, 1, 1, act=act
-        )
-        self.C3_p4 = CSPLayer(
-            360,
-            128,
-            1,
-            False,
-            depthwise=False,
-            act=act,
-        )  # cat
-
-        self.reduce_conv1 = BaseConv(
-            128, 64, 1, 1, act=act
-        )
-        self.C3_p3 = CSPLayer(
-            184,
-            64,
-            1,
-            False,
-            depthwise=False,
-            act=act,
-        )
-        # bottom-up conv
-        self.bu_conv2 = BaseConv(
-            64, 64, 3, 2, act=act
-        )
-        self.C3_n3 = CSPLayer(
-            128,
-            128,
-            1,
-            False,
-            depthwise=False,
-            act=act,
-        )
-
-    def forward(self, input):
-        """
-        Args:
-            inputs: input images.
-
-        Returns:
-            Tuple[Tensor]: FPN feature.
-        """
-        #  backbone
-        out_features = self.backbone(input)
-        features = [out_features[f] for f in self.in_features]
-        [x2, x1, x0] = features
-
-        fpn_out0 = self.lateral_conv0(x0)  # 1024->512/32
-        f_out0 = self.upsample(fpn_out0)  # 512/16
-        f_out0 = torch.cat([f_out0, x1], 1)  # 512->1024/16
-        f_out0 = self.C3_p4(f_out0)  # 1024->512/16
-
-        fpn_out1 = self.reduce_conv1(f_out0)  # 512->256/16
-        f_out1 = self.upsample(fpn_out1)  # 256/8
-        f_out1 = torch.cat([f_out1, x2], 1)  # 256->512/8
-        pan_out2 = self.C3_p3(f_out1)  # 512->256/8
-
-        p_out1 = self.bu_conv2(pan_out2)  # 256->256/16
-        p_out1 = torch.cat([p_out1, fpn_out1], 1)  # 256->512/16
-        pan_out1 = self.C3_n3(p_out1)  # 512->512/16
-
-        outputs = (pan_out2, pan_out1)  # p3(64) p4(128) p5(256)
-        return outputs
-
-
-class YOLO_Rep_P2(YOLOPAFPN_P2):
-    def __init__(
-            self,
-            depth=1.0,
-            width=1.0,
-            in_features=("dark2", "dark3", "dark4", "dark5"),  # add p2
-            in_channels=[64, 128, 256, 512],  # add p2
-            depthwise=False,
-            act="silu",
-    ):
-        super(YOLO_Rep_P2, self).__init__(depth, width, in_features, in_channels, depthwise, act)
-        self.backbone = CSPDarknet_Repvgg(depth, width, in_features, depthwise, act)  # 替换主干网络
-        self.in_features = in_features
-        self.in_channels = in_channels
-        Conv = DWConv if depthwise else BaseConv
-
-        self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
-        self.cbams = nn.ModuleList()
-
-        self.lateral_conv0 = BaseConv(
-            512, 128, 1, 1, act=act
-        )  # 512->128
-        self.C3_p4 = CSPLayer(
-            384,
-            128,
-            round(3 * depth),
-            False,
-            depthwise=depthwise,
-            act=act,
-        )  # 384 -> 128
-
-        self.reduce_conv1 = BaseConv(
-            128, 64, 1, 1, act=act  # 128->64
-        )
-        self.C3_p3 = CSPLayer(
-            192,
-            64,
-            round(3 * depth),
-            False,
-            depthwise=depthwise,
-            act=act,
-        )  # 192 -> 64
-
-        # add p2
-        self.reduce_conv2 = BaseConv(
-            64, 64, 1, 1, act=act  # 256 -> 256
-        )
-        self.C3_p2 = C3Ghost(
-            128,
-            64,  # 256
-            round(3 * depth),
-            False,
-            depthwise=True,
-            act=act,
-        )  # 128->64
-
-        self.bu_conv3 = DWConv(
-            64, 64, 3, 2, act=act  # 64->64
-        )
-        self.C3_n2 = CSPLayer(
-            128,
-            128,
-            round(3 * depth),
-            False,
-            depthwise=depthwise,
-            act=act,
-        )  # 512 -> 256 p3_out
-
-        self.bu_conv2 = Conv(
-            128, 128, 3, 2, act=act  # 32/16 256
-        )
-        self.C3_n3 = CSPLayer(
-            192,
-            128,
-            round(3 * depth),
-            False,
-            depthwise=depthwise,
-            act=act,
-        )  # 192 -> 128
 
 
 class YOLOPAFPN_prune(nn.Module):
@@ -766,3 +609,76 @@ class YOLOPAFPN_prune(nn.Module):
 
         outputs = (pan_out2, pan_out1, pan_out0)
         return outputs
+
+
+class YOLOPAFPN_Rep(YOLOPAFPN):
+    """
+    YOLOv3 model. Darknet 53 is the default backbone of this model.
+    """
+
+    def __init__(
+            self,
+            depth=1.0,
+            width=1.0,
+            in_features=("dark3", "dark4", "dark5"),
+            in_channels=[256, 512, 1024],
+            depthwise=False,
+            act="silu",
+            deploy=False,
+    ):
+        super(YOLOPAFPN_Rep, self).__init__(depth, width, in_features, in_channels, depthwise, act)
+        self.backbone = CSPDarknet_Rep(depth, width, depthwise=depthwise, act=act, deploy=deploy)
+        self.in_features = in_features
+        self.in_channels = in_channels
+        Conv = DWConv if depthwise else BaseConv
+
+        self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
+        self.lateral_conv0 = BaseConv(
+            int(in_channels[2] * width), int(in_channels[1] * width), 1, 1, act=act
+        )
+        self.C3_p4 = CSPLayer(
+            int(2 * in_channels[1] * width),
+            int(in_channels[1] * width),
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )  # cat
+
+        self.reduce_conv1 = BaseConv(
+            int(in_channels[1] * width), int(in_channels[0] * width), 1, 1, act=act
+        )
+        self.C3_p3 = CSPLayer(
+            int(2 * in_channels[0] * width),
+            int(in_channels[0] * width),
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )
+
+        # bottom-up conv
+        self.bu_conv2 = RepVGGBlock(
+            int(in_channels[0] * width), int(in_channels[0] * width), 3, 2,
+        )
+        self.C3_n3 = CSPLayer(
+            int(2 * in_channels[0] * width),
+            int(in_channels[1] * width),
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )
+
+        # bottom-up conv
+        self.bu_conv1 = RepVGGBlock(
+            int(in_channels[1] * width), int(in_channels[1] * width), 3, 2,
+        )
+        self.C3_n4 = CSPLayer(
+            int(2 * in_channels[1] * width),
+            int(in_channels[2] * width),
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )

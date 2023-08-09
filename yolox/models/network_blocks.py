@@ -5,7 +5,7 @@ import math
 
 import torch
 import torch.nn as nn
-from rep_module import RepVGGBlock
+from yolox.models.rep_module import RepVGGBlock
 
 
 class SiLU(nn.Module):

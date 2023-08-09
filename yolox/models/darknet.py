@@ -5,7 +5,8 @@
 from torch import nn
 
 from .network_blocks import BaseConv, CSPLayer, DWConv, Focus, ResLayer, \
-    SPPBottleneck, GhostConv, C3Ghost, Shuffle_Block, RepVGGBlock
+    SPPBottleneck, GhostConv, C3Ghost, Shuffle_Block
+from .rep_module import RepVGGBlock
 
 
 class Darknet(nn.Module):
@@ -314,7 +315,7 @@ class CSPDarknet_Rep(CSPDarknet):
         base_depth = max(round(dep_mul * 3), 1)  # 3
 
         # stem
-        self.stem = Focus(3, base_channels, ksize=3, act=act)  # 2/64
+        self.stem = Focus(3, base_channels, ksize=3, act=act, deploy=deploy)  # 2/64
 
         # dark2
         self.dark2 = nn.Sequential(
@@ -365,5 +366,3 @@ class CSPDarknet_Rep(CSPDarknet):
                 act=act,
             ),
         )
-
-

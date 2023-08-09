@@ -6,7 +6,7 @@ from torch import nn
 
 from .network_blocks import BaseConv, CSPLayer, DWConv, Focus, ResLayer, \
     SPPBottleneck, GhostConv, C3Ghost, Shuffle_Block
-from .rep_module import RepVGGBlock
+from yolox.models.rep_module import RepVGGBlock
 
 
 class Darknet(nn.Module):

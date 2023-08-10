@@ -564,17 +564,16 @@ class DiverseBranchBlock(nn.Module):
 
     def __init__(self, in_channels, out_channels, kernel_size,
                  stride=1, padding=0, dilation=1, groups=1,
-                 internal_channels_1x1_3x3=None,
+                 internal_channels_1x1_3x3=None, nonlinear=nn.SiLU(inplace=True),
                  deploy=False, single_init=False):
         super(DiverseBranchBlock, self).__init__()
         self.deploy = deploy
 
-        # if nonlinear is None:
-        #     self.nonlinear = nn.Identity()
-        # else:
-        #     self.nonlinear = nonlinear
-        self.nonlinear = nn.SiLU(inplace=True)
-        # self.nonlinear = nn.Identity()
+        if nonlinear is None:
+            self.nonlinear = nn.Identity()
+        else:
+            self.nonlinear = nonlinear
+        # self.nonlinear = nn.SiLU(inplace=True)
 
         self.kernel_size = kernel_size
         self.out_channels = out_channels
@@ -680,7 +679,7 @@ class DiverseBranchBlock(nn.Module):
 
     def forward(self, inputs):
 
-        if hasattr(self, 'dbb_reparam'):
+        if hasattr(self, 'dbb_reparam'):  # 部署时forward
             return self.nonlinear(self.dbb_reparam(inputs))
 
         out = self.dbb_origin(inputs)

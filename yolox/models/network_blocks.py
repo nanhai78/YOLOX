@@ -198,9 +198,9 @@ class CSPLayer(nn.Module):
 class Focus(nn.Module):
     """Focus width and height information into channel space."""
 
-    def __init__(self, in_channels, out_channels, ksize=1, stride=1, act="silu", deploy=False):
+    def __init__(self, in_channels, out_channels, ksize=1, stride=1, act="silu"):
         super().__init__()
-        self.conv = RepVGGBlock(in_channels * 4, out_channels, ksize, stride, deploy=deploy)
+        self.conv = BaseConv(in_channels * 4, out_channels, ksize, stride, act=act)
 
     def forward(self, x):
         # shape of x (b,c,w,h) -> y(b,4c,w/2,h/2)
@@ -462,8 +462,17 @@ class C3_DBB(CSPLayer):
     # C3 module with DBB
     def __init__(self, c1, c2, n=1, shortcut=True, e=0.5, depthwise=False, act="silu", deploy=False):
         super().__init__(c1, c2, n, shortcut, e, depthwise, act)
-        c_ = int(c2 * e)  # hidden channels
-        self.m = nn.Sequential(*(DiverseBranchBlock(c_, c_, 3, 1, 1, deploy=deploy) for _ in range(n)))
+        hidden_channels = int(c2 * e)  # hidden channels
+        self.conv1 = BaseConv(c1, hidden_channels, 1, stride=1, act=act)
+        self.conv2 = BaseConv(c1, hidden_channels, 1, stride=1, act=act)
+        self.conv3 = BaseConv(2 * hidden_channels, c2, 1, stride=1, act=act)
+        module_list = [
+            DiverseBranchBlock(
+                hidden_channels, hidden_channels, 3, 1, 1, deploy=deploy
+            )
+            for _ in range(n)
+        ]
+        self.m = nn.Sequential(*module_list)
 
 
 class C3_RepGhost(CSPLayer):

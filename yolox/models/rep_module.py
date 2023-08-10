@@ -118,7 +118,7 @@ class RepVGGBlock(nn.Module):
 
         padding_11 = padding - kernel_size // 2
 
-        self.nonlinearity = nn.SiLU()  # act
+        self.nonlinearity = nn.SiLU(inplace=True)  # act
 
         if use_se:  # is use se block
             self.se = SEBlock(out_channels, internal_neurons=out_channels // 16)
@@ -565,14 +565,15 @@ class DiverseBranchBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size,
                  stride=1, padding=0, dilation=1, groups=1,
                  internal_channels_1x1_3x3=None,
-                 deploy=False, nonlinear=None, single_init=False):
+                 deploy=False, single_init=False):
         super(DiverseBranchBlock, self).__init__()
         self.deploy = deploy
 
-        if nonlinear is None:
-            self.nonlinear = nn.Identity()
-        else:
-            self.nonlinear = nonlinear
+        # if nonlinear is None:
+        #     self.nonlinear = nn.Identity()
+        # else:
+        #     self.nonlinear = nonlinear
+        self.nonlinear = nn.SiLU(inplace=True)
 
         self.kernel_size = kernel_size
         self.out_channels = out_channels

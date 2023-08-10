@@ -5,7 +5,7 @@
 from torch import nn
 
 from .network_blocks import BaseConv, CSPLayer, DWConv, Focus, ResLayer, \
-    SPPBottleneck, GhostConv, C3Ghost, Shuffle_Block
+    SPPBottleneck, C3_DBB
 from yolox.models.rep_module import RepVGGBlock
 
 
@@ -249,54 +249,6 @@ class CSPDarknet_Ghost(CSPDarknet):
         )
 
 
-class ShuffleNet(nn.Module):
-    """
-    backbone with shuffleNet;
-    """
-
-    def __init__(self,
-                 out_features=("dark3", "dark4", "dark5"),
-                 ):
-        super(ShuffleNet, self).__init__()
-        base_depth = [1, 3, 7, 3]
-        self.out_features = out_features
-        self.stem = BaseConv(3, 32, 6, 2)
-        # p2/4
-        self.dark2 = nn.Sequential(
-            Shuffle_Block(32, 64, 2),  # 下采样
-            *[Shuffle_Block(64, 64, 1) for _ in range(base_depth[0])],
-        )
-        # p3/8
-        self.dark3 = nn.Sequential(
-            Shuffle_Block(64, 120, 2),
-            *[Shuffle_Block(120, 120, 1) for _ in range(base_depth[1])],
-        )
-        # p4/16
-        self.dark4 = nn.Sequential(
-            Shuffle_Block(120, 232, 2),
-            *[Shuffle_Block(232, 232, 1) for _ in range(base_depth[2])],
-        )
-        # p5/32
-        self.dark5 = nn.Sequential(
-            Shuffle_Block(232, 464, 2),
-            *[Shuffle_Block(464, 464, 1) for _ in range(base_depth[3])],
-        )
-
-    def forward(self, x):
-        outputs = {}
-        x = self.stem(x)
-        outputs["stem"] = x
-        x = self.dark2(x)
-        outputs["dark2"] = x
-        x = self.dark3(x)
-        outputs["dark3"] = x
-        x = self.dark4(x)
-        outputs["dark4"] = x
-        x = self.dark5(x)
-        outputs["dark5"] = x
-        return {k: v for k, v in outputs.items() if k in self.out_features}
-
-
 class CSPDarknet_Rep(CSPDarknet):
     def __init__(
             self,
@@ -320,36 +272,39 @@ class CSPDarknet_Rep(CSPDarknet):
         # dark2
         self.dark2 = nn.Sequential(
             RepVGGBlock(base_channels, base_channels * 2, 3, 2, deploy=deploy),
-            CSPLayer(
+            C3_DBB(
                 base_channels * 2,
                 base_channels * 2,
                 n=base_depth,
                 depthwise=depthwise,
                 act=act,
+                deploy=deploy
             ),
         )
 
         # dark3
         self.dark3 = nn.Sequential(
             RepVGGBlock(base_channels * 2, base_channels * 4, 3, 2, deploy=deploy),
-            CSPLayer(
+            C3_DBB(
                 base_channels * 4,
                 base_channels * 4,
                 n=base_depth * 3,
                 depthwise=depthwise,
                 act=act,
+                deploy=deploy
             ),
         )
 
         # dark4
         self.dark4 = nn.Sequential(
             RepVGGBlock(base_channels * 4, base_channels * 8, 3, 2, deploy=deploy),
-            CSPLayer(
+            C3_DBB(
                 base_channels * 8,
                 base_channels * 8,
                 n=base_depth * 3,
                 depthwise=depthwise,
                 act=act,
+                deploy=deploy
             ),
         )
 
@@ -357,12 +312,13 @@ class CSPDarknet_Rep(CSPDarknet):
         self.dark5 = nn.Sequential(
             RepVGGBlock(base_channels * 8, base_channels * 16, 3, 2, deploy=deploy),
             SPPBottleneck(base_channels * 16, base_channels * 16, activation=act),
-            CSPLayer(
+            C3_DBB(
                 base_channels * 16,
                 base_channels * 16,
                 n=base_depth,
                 shortcut=False,
                 depthwise=depthwise,
                 act=act,
+                deploy=deploy
             ),
         )

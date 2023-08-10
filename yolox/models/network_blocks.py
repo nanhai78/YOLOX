@@ -5,7 +5,7 @@ import math
 
 import torch
 import torch.nn as nn
-from yolox.models.rep_module import RepVGGBlock
+from yolox.models.rep_module import RepVGGBlock, DiverseBranchBlock, RepGhostBottleneck
 
 
 class SiLU(nn.Module):
@@ -378,49 +378,6 @@ class GAM_Attention(nn.Module):
         return out
 
 
-# ----------------GhostNet------------------------------------
-class GhostConv(nn.Module):
-    # Ghost Convolution https://github.com/huawei-noah/ghostnet
-    def __init__(self, c1, c2, k=1, s=1, g=1, bias=False, act="silu"):  # ch_in, ch_out, kernel, stride, groups
-        super().__init__()
-        c_ = c2 // 2  # hidden channels
-        self.cv1 = BaseConv(c1, c_, k, s, bias=bias, groups=g, act=act)
-        self.cv2 = BaseConv(c_, c_, 5, 1, bias=bias, groups=c_, act=act)
-
-    def forward(self, x):
-        y = self.cv1(x)
-        return torch.cat((y, self.cv2(y)), 1)
-
-
-class GhostBottleneck(nn.Module):
-    # Ghost Bottleneck https://github.com/huawei-noah/ghostnet
-    def __init__(self, c1, c2, k=3, s=1, act="silu"):  # ch_in, ch_out, kernel, stride
-        super().__init__()
-        c_ = c2 // 2
-        self.conv = nn.Sequential(
-            GhostConv(c1, c_, 1, 1),  # pw
-            DWConv_(c_, c_, k, s, act=act) if s == 2 else nn.Identity(),  # dw
-            GhostConv(c_, c2, 1, 1, act=act))  # pw-linear
-        self.shortcut = nn.Sequential(DWConv_(c1, c1, k, s, act=act), BaseConv(c1, c2, 1, 1,
-                                                                               act=act)) if s == 2 else nn.Identity()
-
-    def forward(self, x):
-        return self.conv(x) + self.shortcut(x)
-
-
-class C3Ghost(CSPLayer):
-    # C3 module with GhostBottleneck()
-    def __init__(self, c1, c2, n=1, shortcut=True, e=0.5, depthwise=False, act="silu"):
-        super().__init__(c1, c2, n, shortcut, e, depthwise, act)
-        c_ = int(c2 * e)  # hidden channels
-        self.m = nn.Sequential(*(GhostBottleneck(c_, c_) for _ in range(n)))
-
-
-class DWConv_(BaseConv):
-    def __init__(self, c1, c2, ksize, stride, bias=False, act="silu"):
-        super(DWConv_, self).__init__(c1, c2, ksize, stride, groups=math.gcd(c1, c2), bias=bias, act=act)
-
-
 # --------------------build shuffleNet----------------------------------
 def channel_shuffle(x, groups):
     batchsize, num_channels, height, width = x.data.size()
@@ -499,4 +456,19 @@ class Shuffle_Block(nn.Module):
 
         return out
 
+
 # ———————————————————————————shuffle block end——————————————————————————
+class C3_DBB(CSPLayer):
+    # C3 module with DBB
+    def __init__(self, c1, c2, n=1, shortcut=True, e=0.5, depthwise=False, act="silu", deploy=False):
+        super().__init__(c1, c2, n, shortcut, e, depthwise, act)
+        c_ = int(c2 * e)  # hidden channels
+        self.m = nn.Sequential(*(DiverseBranchBlock(c_, c_, 3, 1, 1, deploy=deploy) for _ in range(n)))
+
+
+class C3_RepGhost(CSPLayer):
+    # C3 module with Rep Ghost
+    def __init__(self, c1, c2, n=1, shortcut=True, e=0.5, depthwise=False, act="silu"):
+        super().__init__(c1, c2, n, shortcut, e, depthwise, act)
+        c_ = int(c2 * e)  # hidden channels
+        self.m = nn.Sequential(*(RepGhostBottleneck(c_, c_, c_) for _ in range(n)))

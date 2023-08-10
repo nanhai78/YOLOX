@@ -5,8 +5,9 @@
 import torch
 import torch.nn as nn
 
-from .darknet import CSPDarknet, ShuffleNet, CSPDarknet_Rep
-from .network_blocks import BaseConv, CSPLayer, DWConv, CBAM, C3Ghost
+from .darknet import CSPDarknet, CSPDarknet_Rep
+from .network_blocks import BaseConv, CSPLayer, DWConv, CBAM, C3_RepGhost
+from yolox.models.rep_module import RepGhostModule
 
 
 class YOLOPAFPN(nn.Module):
@@ -573,6 +574,9 @@ class YOLOPAFPN_Rep(YOLOPAFPN):
         self.lateral_conv0 = BaseConv(
             int(in_channels[2] * width), int(in_channels[1] * width), 1, 1, act=act
         )
+        # self.lateral_conv0 = RepGhostModule(
+        #     int(in_channels[2] * width), int(in_channels[1] * width)
+        # )
         self.C3_p4 = CSPLayer(
             int(2 * in_channels[1] * width),
             int(in_channels[1] * width),
@@ -585,6 +589,9 @@ class YOLOPAFPN_Rep(YOLOPAFPN):
         self.reduce_conv1 = BaseConv(
             int(in_channels[1] * width), int(in_channels[0] * width), 1, 1, act=act
         )
+        # self.reduce_conv1 = RepGhostModule(
+        #     int(in_channels[1] * width), int(in_channels[0] * width)
+        # )
         self.C3_p3 = CSPLayer(
             int(2 * in_channels[0] * width),
             int(in_channels[0] * width),
@@ -598,6 +605,9 @@ class YOLOPAFPN_Rep(YOLOPAFPN):
         self.bu_conv2 = Conv(
             int(in_channels[0] * width), int(in_channels[0] * width), 3, 2
         )
+        # self.bu_conv2 = RepGhostModule(
+        #     int(in_channels[0] * width), int(in_channels[0] * width), 3, stride=2
+        # )
         self.C3_n3 = CSPLayer(
             int(2 * in_channels[0] * width),
             int(in_channels[1] * width),
@@ -611,6 +621,9 @@ class YOLOPAFPN_Rep(YOLOPAFPN):
         self.bu_conv1 = Conv(
             int(in_channels[1] * width), int(in_channels[1] * width), 3, 2
         )
+        # self.bu_conv1 = RepGhostModule(
+        #     int(in_channels[1] * width), int(in_channels[1] * width), 3, stride=2
+        # )
         self.C3_n4 = CSPLayer(
             int(2 * in_channels[1] * width),
             int(in_channels[2] * width),

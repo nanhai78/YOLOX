@@ -272,39 +272,36 @@ class CSPDarknet_Rep(CSPDarknet):
         # dark2
         self.dark2 = nn.Sequential(
             RepVGGBlock(base_channels, base_channels * 2, 3, 2, deploy=deploy),
-            C3_DBB(
+            CSPLayer(
                 base_channels * 2,
                 base_channels * 2,
                 n=base_depth,
                 depthwise=depthwise,
                 act=act,
-                deploy=deploy
             ),
         )
 
         # dark3
         self.dark3 = nn.Sequential(
             RepVGGBlock(base_channels * 2, base_channels * 4, 3, 2, deploy=deploy),
-            C3_DBB(
+            CSPLayer(
                 base_channels * 4,
                 base_channels * 4,
                 n=base_depth * 3,
                 depthwise=depthwise,
                 act=act,
-                deploy=deploy
             ),
         )
 
         # dark4
         self.dark4 = nn.Sequential(
             RepVGGBlock(base_channels * 4, base_channels * 8, 3, 2, deploy=deploy),
-            C3_DBB(
+            CSPLayer(
                 base_channels * 8,
                 base_channels * 8,
                 n=base_depth * 3,
                 depthwise=depthwise,
                 act=act,
-                deploy=deploy
             ),
         )
 
@@ -312,13 +309,12 @@ class CSPDarknet_Rep(CSPDarknet):
         self.dark5 = nn.Sequential(
             RepVGGBlock(base_channels * 8, base_channels * 16, 3, 2, deploy=deploy),
             SPPBottleneck(base_channels * 16, base_channels * 16, activation=act),
-            C3_DBB(
+            CSPLayer(
                 base_channels * 16,
                 base_channels * 16,
                 n=base_depth,
                 shortcut=False,
                 depthwise=depthwise,
                 act=act,
-                deploy=deploy
             ),
         )

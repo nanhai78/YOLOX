@@ -573,8 +573,8 @@ class DiverseBranchBlock(nn.Module):
         #     self.nonlinear = nn.Identity()
         # else:
         #     self.nonlinear = nonlinear
-        # self.nonlinear = nn.SiLU(inplace=True)
-        self.nonlinear = nn.Identity()
+        self.nonlinear = nn.SiLU(inplace=True)
+        # self.nonlinear = nn.Identity()
 
         self.kernel_size = kernel_size
         self.out_channels = out_channels

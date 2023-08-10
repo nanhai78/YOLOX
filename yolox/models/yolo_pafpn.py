@@ -571,12 +571,12 @@ class YOLOPAFPN_Rep(YOLOPAFPN):
         Conv = DWConv if depthwise else BaseConv
 
         self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
-        self.lateral_conv0 = BaseConv(
-            int(in_channels[2] * width), int(in_channels[1] * width), 1, 1, act=act
-        )
-        # self.lateral_conv0 = RepGhostModule(
-        #     int(in_channels[2] * width), int(in_channels[1] * width)
+        # self.lateral_conv0 = BaseConv(
+        #     int(in_channels[2] * width), int(in_channels[1] * width), 1, 1, act=act
         # )
+        self.lateral_conv0 = RepGhostModule(
+            int(in_channels[2] * width), int(in_channels[1] * width)
+        )
         self.C3_p4 = CSPLayer(
             int(2 * in_channels[1] * width),
             int(in_channels[1] * width),
@@ -586,12 +586,12 @@ class YOLOPAFPN_Rep(YOLOPAFPN):
             act=act,
         )  # cat
 
-        self.reduce_conv1 = BaseConv(
-            int(in_channels[1] * width), int(in_channels[0] * width), 1, 1, act=act
-        )
-        # self.reduce_conv1 = RepGhostModule(
-        #     int(in_channels[1] * width), int(in_channels[0] * width)
+        # self.reduce_conv1 = BaseConv(
+        #     int(in_channels[1] * width), int(in_channels[0] * width), 1, 1, act=act
         # )
+        self.reduce_conv1 = RepGhostModule(
+            int(in_channels[1] * width), int(in_channels[0] * width)
+        )
         self.C3_p3 = CSPLayer(
             int(2 * in_channels[0] * width),
             int(in_channels[0] * width),
@@ -602,12 +602,12 @@ class YOLOPAFPN_Rep(YOLOPAFPN):
         )
 
         # bottom-up conv
-        self.bu_conv2 = Conv(
-            int(in_channels[0] * width), int(in_channels[0] * width), 3, 2
-        )
-        # self.bu_conv2 = RepGhostModule(
-        #     int(in_channels[0] * width), int(in_channels[0] * width), 3, stride=2
+        # self.bu_conv2 = Conv(
+        #     int(in_channels[0] * width), int(in_channels[0] * width), 3, 2
         # )
+        self.bu_conv2 = RepGhostModule(
+            int(in_channels[0] * width), int(in_channels[0] * width), 3, stride=2
+        )
         self.C3_n3 = CSPLayer(
             int(2 * in_channels[0] * width),
             int(in_channels[1] * width),
@@ -618,12 +618,12 @@ class YOLOPAFPN_Rep(YOLOPAFPN):
         )
 
         # bottom-up conv
-        self.bu_conv1 = Conv(
-            int(in_channels[1] * width), int(in_channels[1] * width), 3, 2
-        )
-        # self.bu_conv1 = RepGhostModule(
-        #     int(in_channels[1] * width), int(in_channels[1] * width), 3, stride=2
+        # self.bu_conv1 = Conv(
+        #     int(in_channels[1] * width), int(in_channels[1] * width), 3, 2
         # )
+        self.bu_conv1 = RepGhostModule(
+            int(in_channels[1] * width), int(in_channels[1] * width), 3, stride=2
+        )
         self.C3_n4 = CSPLayer(
             int(2 * in_channels[1] * width),
             int(in_channels[2] * width),

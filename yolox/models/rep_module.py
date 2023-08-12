@@ -82,7 +82,7 @@ def hard_sigmoid(x, inplace: bool = False):
     if inplace:
         return x.add_(3.0).clamp_(0.0, 6.0).div_(6.0)
     else:
-        return F.relu6(x + 3.0) / 6.0
+        return F.silu6(x + 3.0) / 6.0
 
 
 # ---------------build rep conv block----------------------------------------
@@ -100,7 +100,7 @@ class SEBlock(nn.Module):
     def forward(self, inputs):
         x = F.avg_pool2d(inputs, kernel_size=inputs.size(3))
         x = self.down(x)
-        x = F.relu(x)
+        x = F.silu(x)
         x = self.up(x)
         x = torch.sigmoid(x)
         x = x.view(-1, self.input_channels, 1, 1)
@@ -223,7 +223,7 @@ class SqueezeExcite(nn.Module):
             in_chs,
             se_ratio=0.25,
             reduced_base_chs=None,
-            act_layer=nn.ReLU,
+            act_layer=nn.SiLU,
             gate_fn=hard_sigmoid,
             divisor=4,
             **_,
@@ -249,7 +249,7 @@ class SqueezeExcite(nn.Module):
 
 class RepGhostModule(nn.Module):
     def __init__(
-            self, inp, oup, kernel_size=1, dw_size=3, stride=1, relu=True, deploy=False, reparam_bn=True,
+            self, inp, oup, kernel_size=1, dw_size=3, stride=1, silu=True, deploy=False, reparam_bn=True,
             reparam_identity=False
     ):
         super(RepGhostModule, self).__init__()
@@ -262,7 +262,7 @@ class RepGhostModule(nn.Module):
                 inp, init_channels, kernel_size, stride, kernel_size // 2, bias=False,
             ),
             nn.BatchNorm2d(init_channels),
-            nn.ReLU(inplace=True) if relu else nn.Sequential(),
+            nn.SiLU(inplace=True) if silu else nn.Sequential(),
         )
         fusion_conv = []
         fusion_bn = []
@@ -287,21 +287,20 @@ class RepGhostModule(nn.Module):
                 bias=deploy,
             ),
             nn.BatchNorm2d(new_channels) if not deploy else nn.Sequential(),
-            # nn.ReLU(inplace=True) if relu else nn.Sequential(),
         )
         if deploy:
             self.cheap_operation = self.cheap_operation[0]
-        if relu:
-            self.relu = nn.ReLU(inplace=False)
+        if silu:
+            self.silu = nn.SiLU(inplace=False)
         else:
-            self.relu = nn.Sequential()
+            self.silu = nn.Sequential()
 
     def forward(self, x):
         x1 = self.primary_conv(x)
         x2 = self.cheap_operation(x1)
         for conv, bn in zip(self.fusion_conv, self.fusion_bn):
             x2 = x2 + bn(conv(x1))
-        return self.relu(x2)
+        return self.silu(x2)
 
     def get_equivalent_kernel_bias(self):
         kernel3x3, bias3x3 = self._fuse_bn_tensor(self.cheap_operation[0], self.cheap_operation[1])
@@ -392,7 +391,7 @@ class RepGhostBottleneck(nn.Module):
         self.ghost1 = RepGhostModule(
             in_chs,
             mid_chs,
-            relu=True,
+            silu=True,
             reparam_bn=reparam and reparam_bn,
             reparam_identity=reparam and reparam_identity,
             deploy=deploy,
@@ -421,7 +420,7 @@ class RepGhostBottleneck(nn.Module):
         self.ghost2 = RepGhostModule(
             mid_chs,
             out_chs,
-            relu=False,
+            silu=False,
             reparam_bn=reparam and reparam_bn,
             reparam_identity=reparam and reparam_identity,
             deploy=deploy,
@@ -608,12 +607,12 @@ class DiverseBranchBlock(nn.Module):
                 internal_channels_1x1_3x3 = in_channels if groups < out_channels else 2 * in_channels  # For mobilenet, it is better to have 2X internal channels
 
             self.dbb_1x1_kxk = nn.Sequential()
-            if internal_channels_1x1_3x3 == in_channels:
-                self.dbb_1x1_kxk.add_module('idconv1', IdentityBasedConv1x1(channels=in_channels, groups=groups))
-            else:
-                self.dbb_1x1_kxk.add_module('conv1',
-                                            nn.Conv2d(in_channels=in_channels, out_channels=internal_channels_1x1_3x3,
-                                                      kernel_size=1, stride=1, padding=0, groups=groups, bias=False))
+            # if internal_channels_1x1_3x3 == in_channels:
+            #     self.dbb_1x1_kxk.add_module('idconv1', IdentityBasedConv1x1(channels=in_channels, groups=groups))
+            # else:
+            self.dbb_1x1_kxk.add_module('conv1',
+                                        nn.Conv2d(in_channels=in_channels, out_channels=internal_channels_1x1_3x3,
+                                                  kernel_size=1, stride=1, padding=0, groups=groups, bias=False))
             self.dbb_1x1_kxk.add_module('bn1', BNAndPadLayer(pad_pixels=padding, num_features=internal_channels_1x1_3x3,
                                                              affine=True))
             self.dbb_1x1_kxk.add_module('conv2',
@@ -703,3 +702,6 @@ class DiverseBranchBlock(nn.Module):
         self.init_gamma(0.0)
         if hasattr(self, "dbb_origin"):
             torch.nn.init.constant_(self.dbb_origin.bn.weight, 1.0)
+
+
+

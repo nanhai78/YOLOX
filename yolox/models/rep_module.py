@@ -256,6 +256,8 @@ class RepGhostModule(nn.Module):
         init_channels = oup
         new_channels = oup
         self.deploy = deploy
+        self.reparam_bn = reparam_bn
+        self.reparam_identity = reparam_identity
 
         self.primary_conv = nn.Sequential(
             nn.Conv2d(
@@ -267,14 +269,19 @@ class RepGhostModule(nn.Module):
         fusion_conv = []
         fusion_bn = []
         if not deploy and reparam_bn:
-            fusion_conv.append(nn.Identity())
-            fusion_bn.append(nn.BatchNorm2d(init_channels))
-        if not deploy and reparam_identity:
-            fusion_conv.append(nn.Identity())
-            fusion_bn.append(nn.Identity())
+            self.bn1 = nn.BatchNorm2d(init_channels)
 
-        self.fusion_conv = nn.Sequential(*fusion_conv)
-        self.fusion_bn = nn.Sequential(*fusion_bn)
+        if not deploy and reparam_identity:
+            self.identity1 = nn.Identity()
+        # if not deploy and reparam_bn:
+        #     fusion_conv.append(nn.Identity())
+        #     fusion_bn.append(nn.BatchNorm2d(init_channels))
+        # if not deploy and reparam_identity:
+        #     fusion_conv.append(nn.Identity())
+        #     fusion_bn.append(nn.Identity())
+
+        # self.fusion_conv = nn.Sequential(*fusion_conv)
+        # self.fusion_bn = nn.Sequential(*fusion_bn)
 
         self.cheap_operation = nn.Sequential(
             nn.Conv2d(
@@ -298,8 +305,12 @@ class RepGhostModule(nn.Module):
     def forward(self, x):
         x1 = self.primary_conv(x)
         x2 = self.cheap_operation(x1)
-        for conv, bn in zip(self.fusion_conv, self.fusion_bn):
-            x2 = x2 + bn(conv(x1))
+        # for conv, bn in zip(self.fusion_conv, self.fusion_bn):
+        #     x2 = x2 + bn(conv(x1))
+        if self.reparam_bn:
+            x2 += self.bn1(x1)
+        if self.reparam_identity:
+            x2 += self.identity1(x1)
         return self.silu(x2)
 
     def get_equivalent_kernel_bias(self):

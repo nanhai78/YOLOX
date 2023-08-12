@@ -428,7 +428,7 @@ class RepGhostBottleneck(nn.Module):
 
         # shortcut
         if in_chs == out_chs and self.stride == 1:
-            self.shortcut = nn.Sequential()
+            self.shortcut = nn.Identity()
         else:
             self.shortcut = nn.Sequential(
                 nn.Conv2d(

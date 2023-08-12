@@ -1,48 +1,54 @@
 import torch
-from yolox.models import YOLOX, YOLO_Repvgg, YOLOXHead
+import argparse
 import os
 
 """
-Rep VGG模块重新融合
+权重重参化
 """
+parser = argparse.ArgumentParser(description='YOLOX Conversion')
+parser.add_argument('load', metavar='LOAD', help='path to the weights file')
+parser.add_argument('save', metavar='SAVE', help='path to the weights file')
+parser.add_argument('-a', '--arch', metavar='ARCH', default='ResNet-18')
 
 
-def repvgg_model_convert(model: torch.nn.Module, save_path=None, do_copy=True):
-    import copy
-    if do_copy:
-        model = copy.deepcopy(model)
-    for module in model.modules():
-        if hasattr(module, 'switch_to_deploy'):
-            module.switch_to_deploy()
-    if save_path is not None:
-        ckpt = {
-            "model": model.state_dict()
-        }
-        torch.save(ckpt, save_path)
-    print("=> fuse finish '{}'".format(load))
+def get_model(
+    depth=0.33,
+    width=0.5,
+    num_classes=1,
+):
+    from yolox.models import YOLOX, YOLOPAFPN_Rep, YOLOXHead
+    in_channels = [256, 512, 1024]  # in channels for head
+    # in_channels = [256, 256, 512]
+    strides = [8, 16, 32]  # p2 p3 p4
+    # strides = [4, 8, 16]
+    backbone = YOLOPAFPN_Rep(depth, width)
+    head = YOLOXHead(num_classes, width, strides=strides, in_channels=in_channels)
+    model = YOLOX(backbone, head)
     return model
 
 
-if __name__ == '__main__':
-    # 加载训练模型
-    depth = 0.33
-    width = 0.5
-    num_classes = 1
-    strides = [8, 16]
-    in_channels = [256, 256]
-
-    backbone = YOLO_Repvgg(depth, width, deploy=True)
-    head = YOLOXHead(num_classes, width, strides=strides, in_channels=in_channels)
-    train_model = YOLOX(backbone, head)
-    # 加载权重
-    load = "/home/gli/workspace_DL/gli/fork/YOLOX/weight/light_models/x_rP5_Rep.pth"
-    save = "/home/gli/workspace_DL/gli/fork/YOLOX/weight/light_models/x_rP5_Rep_fuse.pth"
-
-    # 开始转
-    if os.path.isfile(load):
-        print("=> loading checkpoint '{}'".format(load))
-        ckpt = torch.load(load)
-        train_model.load_state_dict(ckpt["model"])  # 将权重加载到训练好的模型上
-        repvgg_model_convert(train_model, save)  # 模型进行转换，然后重新保存
+def convert():
+    args = parser.parse_args()
+    model = get_model()
+    if os.path.isfile(args.load):
+        print("=> loading checkpoint '{}'".format(args.load))
+        ckpt = torch.load(args.load)
+        model.load_state_dict(ckpt["model"])  # 模型加载权重
     else:
-        print("=> no checkpoint found at '{}'".format(load))
+        print("=> no checkpoint found at {}".format(args.load))
+
+    for module in model.modules():
+        if hasattr(module, 'switch_to_deploy'):
+            module.switch_to_deploy()
+    if args.save is not None:
+        ckpt = {
+            "model": model.state_dict()
+        }
+        torch.save(ckpt, args.save)
+        print("=> fuse finish '{}'".format(args.load))
+    else:
+        print("=> please confirm save path")
+
+
+if __name__ == '__main__':
+    convert()

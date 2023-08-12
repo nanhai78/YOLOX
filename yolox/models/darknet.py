@@ -278,6 +278,7 @@ class CSPDarknet_Rep(CSPDarknet):
                 n=base_depth,
                 depthwise=depthwise,
                 act=act,
+                deploy=deploy
             ),
         )
 
@@ -290,6 +291,7 @@ class CSPDarknet_Rep(CSPDarknet):
                 n=base_depth * 3,
                 depthwise=depthwise,
                 act=act,
+                deploy=deploy
             ),
         )
 
@@ -302,6 +304,7 @@ class CSPDarknet_Rep(CSPDarknet):
                 n=base_depth * 3,
                 depthwise=depthwise,
                 act=act,
+                deploy=deploy
             ),
         )
 
@@ -316,5 +319,6 @@ class CSPDarknet_Rep(CSPDarknet):
                 shortcut=False,
                 depthwise=depthwise,
                 act=act,
+                deploy=deploy
             ),
         )

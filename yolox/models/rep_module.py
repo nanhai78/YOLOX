@@ -262,7 +262,7 @@ class RepGhostModule(nn.Module):
                 inp, init_channels, kernel_size, stride, kernel_size // 2, bias=False,
             ),
             nn.BatchNorm2d(init_channels),
-            nn.SiLU(inplace=True) if silu else nn.Sequential(),
+            nn.SiLU(inplace=True) if silu else nn.Identity(),
         )
         fusion_conv = []
         fusion_bn = []
@@ -286,14 +286,14 @@ class RepGhostModule(nn.Module):
                 groups=init_channels,
                 bias=deploy,
             ),
-            nn.BatchNorm2d(new_channels) if not deploy else nn.Sequential(),
+            nn.BatchNorm2d(new_channels) if not deploy else nn.Identity(),
         )
         if deploy:
             self.cheap_operation = self.cheap_operation[0]
         if silu:
             self.silu = nn.SiLU(inplace=False)
         else:
-            self.silu = nn.Sequential()
+            self.silu = nn.Identity()
 
     def forward(self, x):
         x1 = self.primary_conv(x)

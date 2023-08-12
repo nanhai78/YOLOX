@@ -126,7 +126,8 @@ class Exp(BaseExp):
             # in_channels = [256, 256, 512]
             strides = [8, 16, 32]  # p2 p3 p4
             # strides = [4, 8, 16]
-            backbone = YOLOPAFPN_Rep(self.depth, self.width)
+            deploy = True
+            backbone = YOLOPAFPN_Rep(self.depth, self.width, deploy=deploy)
             head = YOLOXHead(self.num_classes, self.width, strides=strides, in_channels=in_channels, act=self.act)
             self.model = YOLOX(backbone, head)
 

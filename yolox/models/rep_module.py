@@ -249,39 +249,31 @@ class SqueezeExcite(nn.Module):
 
 class RepGhostModule(nn.Module):
     def __init__(
-            self, inp, oup, kernel_size=1, dw_size=3, stride=1, silu=True, deploy=False, reparam_bn=True,
-            reparam_identity=False
+        self, inp, oup, kernel_size=1, dw_size=3, stride=1, relu=True, deploy=False, reparam_bn=True, reparam_identity=False
     ):
         super(RepGhostModule, self).__init__()
         init_channels = oup
         new_channels = oup
         self.deploy = deploy
-        self.reparam_bn = reparam_bn
-        self.reparam_identity = reparam_identity
 
         self.primary_conv = nn.Sequential(
             nn.Conv2d(
                 inp, init_channels, kernel_size, stride, kernel_size // 2, bias=False,
             ),
             nn.BatchNorm2d(init_channels),
-            nn.SiLU(inplace=True) if silu else nn.Identity(),
+            nn.ReLU(inplace=True) if relu else nn.Sequential(),
         )
         fusion_conv = []
         fusion_bn = []
         if not deploy and reparam_bn:
-            self.bn1 = nn.BatchNorm2d(init_channels)
-
+            fusion_conv.append(nn.Identity())
+            fusion_bn.append(nn.BatchNorm2d(init_channels))
         if not deploy and reparam_identity:
-            self.identity1 = nn.Identity()
-        # if not deploy and reparam_bn:
-        #     fusion_conv.append(nn.Identity())
-        #     fusion_bn.append(nn.BatchNorm2d(init_channels))
-        # if not deploy and reparam_identity:
-        #     fusion_conv.append(nn.Identity())
-        #     fusion_bn.append(nn.Identity())
+            fusion_conv.append(nn.Identity())
+            fusion_bn.append(nn.Identity())
 
-        # self.fusion_conv = nn.Sequential(*fusion_conv)
-        # self.fusion_bn = nn.Sequential(*fusion_bn)
+        self.fusion_conv = nn.Sequential(*fusion_conv)
+        self.fusion_bn = nn.Sequential(*fusion_bn)
 
         self.cheap_operation = nn.Sequential(
             nn.Conv2d(
@@ -293,25 +285,22 @@ class RepGhostModule(nn.Module):
                 groups=init_channels,
                 bias=deploy,
             ),
-            nn.BatchNorm2d(new_channels) if not deploy else nn.Identity(),
+            nn.BatchNorm2d(new_channels) if not deploy else nn.Sequential(),
+            # nn.ReLU(inplace=True) if relu else nn.Sequential(),
         )
         if deploy:
             self.cheap_operation = self.cheap_operation[0]
-        if silu:
-            self.silu = nn.SiLU(inplace=False)
+        if relu:
+            self.relu = nn.ReLU(inplace=False)
         else:
-            self.silu = nn.Identity()
+            self.relu = nn.Sequential()
 
     def forward(self, x):
         x1 = self.primary_conv(x)
         x2 = self.cheap_operation(x1)
-        # for conv, bn in zip(self.fusion_conv, self.fusion_bn):
-        #     x2 = x2 + bn(conv(x1))
-        if self.reparam_bn:
-            x2 += self.bn1(x1)
-        if self.reparam_identity:
-            x2 += self.identity1(x1)
-        return self.silu(x2)
+        for conv, bn in zip(self.fusion_conv, self.fusion_bn):
+            x2 = x2 + bn(conv(x1))
+        return self.relu(x2)
 
     def get_equivalent_kernel_bias(self):
         kernel3x3, bias3x3 = self._fuse_bn_tensor(self.cheap_operation[0], self.cheap_operation[1])
@@ -713,6 +702,3 @@ class DiverseBranchBlock(nn.Module):
         self.init_gamma(0.0)
         if hasattr(self, "dbb_origin"):
             torch.nn.init.constant_(self.dbb_origin.bn.weight, 1.0)
-
-
-

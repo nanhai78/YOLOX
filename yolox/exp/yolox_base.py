@@ -113,7 +113,7 @@ class Exp(BaseExp):
         self.sr = 0.0002  # L1 normal sparse rate
 
     def get_model(self, deploy=False):
-        from yolox.models import YOLOX, YOLOPAFPN, YOLOXHead
+        from yolox.models import YOLOX, YOLOPAFPN_Rep, YOLOXHead
 
         def init_yolo(M):
             for m in M.modules():
@@ -126,8 +126,8 @@ class Exp(BaseExp):
             # in_channels = [256, 256, 512]
             strides = [8, 16, 32]  # p2 p3 p4
             # strides = [4, 8, 16]
-            backbone = YOLOPAFPN(self.depth, self.width)
-            # backbone = YOLOPAFPN(self.depth, self.width, deploy=deploy)
+            # backbone = YOLOPAFPN(self.depth, self.width)
+            backbone = YOLOPAFPN(self.depth, self.width, deploy=deploy)
             head = YOLOXHead(self.num_classes, self.width, strides=strides, in_channels=in_channels, act=self.act)
             self.model = YOLOX(backbone, head)
 

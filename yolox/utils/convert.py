@@ -6,8 +6,8 @@ import os
 权重重参化
 """
 parser = argparse.ArgumentParser(description='YOLOX Conversion')
-parser.add_argument('load', metavar='LOAD', help='path to the weights file')
-parser.add_argument('save', metavar='SAVE', help='path to the weights file')
+parser.add_argument('--load', metavar='LOAD', help='path to the weights file')
+parser.add_argument('--save', metavar='SAVE', help='path to the weights file')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='ResNet-18')
 
 

@@ -162,9 +162,9 @@ if __name__ == '__main__':
                 assert len(w.shape) == 4
                 m_pruned.weight.data = w.clone()
 
-        if isinstance(m_origin, nn.Conv2d) and bn_name not in mask_dict.keys():  # 卷积层剪枝，head最后的Conv
+        # if isinstance(m_origin, nn.Conv2d) and bn_name not in mask_dict.keys():  # 卷积层剪枝，head最后的Conv
 
-        if isinstance(m_origin, nn.BatchNorm2d):  # BN层剪枝
+        # if isinstance(m_origin, nn.BatchNorm2d):  # BN层剪枝
 
 
     # 保存剪枝后的模型。

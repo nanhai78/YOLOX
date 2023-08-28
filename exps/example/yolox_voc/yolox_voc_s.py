@@ -15,7 +15,7 @@ class Exp(MyExp):
 
         # ---------- transform config ------------ #
         self.mosaic_prob = 1.0
-        self.mixup_prob = 0.1
+        self.mixup_prob = 0
         self.hsv_prob = 1.0
         self.flip_prob = 0.5
 

@@ -3,13 +3,13 @@ import torch.nn as nn
 
 from yolox.models.network_blocks import Bottleneck
 from yolox.models.yolo_head import YOLOXHead
-from yolox.models.yolo_pafpn import YOLOPAFPN_Rep
+from yolox.models.yolo_pafpn import YOLOPAFPN_Ghost
 from yolox.models.yolox import YOLOX
 
 from thop import clever_format, profile
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-backbone = YOLOPAFPN_Rep(0.33, 0.5)
+backbone = YOLOPAFPN_Ghost(0.33, 0.5)
 head = YOLOXHead(1, width=0.5, strides=[8, 16, 32], in_channels=[256, 512, 1024])
 model = YOLOX(backbone, head)
 model = model.eval()

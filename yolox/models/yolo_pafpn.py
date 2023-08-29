@@ -7,7 +7,6 @@ import torch.nn as nn
 
 from .darknet import CSPDarknet, CSPDarknetRep
 from .network_blocks import BaseConv, CSPLayer, DWConv, CBAM, C3_RepGhost
-from yolox.models.rep_module import RepGhostModule
 
 
 class YOLOPAFPN(nn.Module):
@@ -220,9 +219,6 @@ class YOLOPAFPN_Rep(YOLOPAFPN):
         Conv = DWConv if depthwise else BaseConv
 
         self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
-        # self.lateral_conv0 = GhostConv(
-        #     int(in_channels[2] * width), int(in_channels[1] * width), 1, 1,
-        # )
         self.lateral_conv0 = RepGhostModule(
             int(in_channels[2] * width), int(in_channels[1] * width), 1, 5, 1
         )
@@ -235,9 +231,6 @@ class YOLOPAFPN_Rep(YOLOPAFPN):
             act=act,
         )  # cat
 
-        # self.reduce_conv1 = BaseConv(
-        #     int(in_channels[1] * width), int(in_channels[0] * width), 1, 1, act=act
-        # )
         self.reduce_conv1 = RepGhostModule(
             int(in_channels[1] * width), int(in_channels[0] * width), 1, 5, 1
         )
@@ -251,9 +244,6 @@ class YOLOPAFPN_Rep(YOLOPAFPN):
         )
 
         # bottom-up conv
-        # self.bu_conv2 = Conv(
-        #     int(in_channels[0] * width), int(in_channels[0] * width), 1, 1
-        # )
         self.bu_conv2 = RepGhostModule(
             int(in_channels[0] * width), int(in_channels[0] * width), 3, 5, 2
         )
@@ -267,9 +257,6 @@ class YOLOPAFPN_Rep(YOLOPAFPN):
         )
 
         # bottom-up conv
-        # self.bu_conv1 = Conv(
-        #     int(in_channels[1] * width), int(in_channels[1] * width), 3, 2
-        # )
         self.bu_conv1 = RepGhostModule(
             int(in_channels[1] * width), int(in_channels[1] * width), 3, 5, 2
         )

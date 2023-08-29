@@ -5,8 +5,8 @@
 from torch import nn
 
 from .network_blocks import BaseConv, CSPLayer, DWConv, Focus, ResLayer, \
-    SPPBottleneck, C3_DBB
-from yolox.models.rep_module import RepVGGBlock
+    SPPBottleneck, CSP_DBB
+from yolox.models.rep.RepVggBlock import RepVGGBlock
 
 
 class Darknet(nn.Module):
@@ -204,7 +204,7 @@ class CSPDarknetRep(CSPDarknet):
         # dark2
         self.dark2 = nn.Sequential(
             RepVGGBlock(base_channels, base_channels * 2, 3, 2, deploy=deploy),
-            C3_DBB(
+            CSP_DBB(
                 base_channels * 2,
                 base_channels * 2,
                 n=base_depth,
@@ -217,7 +217,7 @@ class CSPDarknetRep(CSPDarknet):
         # dark3
         self.dark3 = nn.Sequential(
             RepVGGBlock(base_channels * 2, base_channels * 4, 3, 2, deploy=deploy),
-            C3_DBB(
+            CSP_DBB(
                 base_channels * 4,
                 base_channels * 4,
                 n=base_depth * 3,
@@ -230,7 +230,7 @@ class CSPDarknetRep(CSPDarknet):
         # dark4
         self.dark4 = nn.Sequential(
             RepVGGBlock(base_channels * 4, base_channels * 8, 3, 2, deploy=deploy),
-            C3_DBB(
+            CSP_DBB(
                 base_channels * 8,
                 base_channels * 8,
                 n=base_depth * 3,
@@ -244,7 +244,7 @@ class CSPDarknetRep(CSPDarknet):
         self.dark5 = nn.Sequential(
             RepVGGBlock(base_channels * 8, base_channels * 16, 3, 2, deploy=deploy),
             SPPBottleneck(base_channels * 16, base_channels * 16, activation=act),
-            C3_DBB(
+            CSP_DBB(
                 base_channels * 16,
                 base_channels * 16,
                 n=base_depth,

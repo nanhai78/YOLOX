@@ -85,6 +85,10 @@ python tools/demo.py image -f exps/example/yolox_voc/yolox_voc_s.py -c weight/li
 打开本地浏览器 -> 127.0.0.1:16006
 ```
 
+- 查看文件数量
+
+
+
 # 消融实验
 
 ```
@@ -140,7 +144,15 @@ backbone：CSPDarknet Neck：去掉了P5
 
 注. AP[0.5-0.95]简记为AP, input_size=[768, 400], nms=0.65, 基准网络是Yolox的small版本
 
-# 剪枝
+
+
+# 8000组
+
+| Model   | Flops  | Params | AP0.5 | AP    | Speed(cpu/gpu) |
+| ------- | ------ | ------ | ----- | ----- | -------------- |
+| x-small | 20.78G | 8.94M  | 96.17 | 63.97 | /7.88+.65      |
+
+
 
 
 

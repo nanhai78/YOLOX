@@ -59,7 +59,7 @@ class Exp(BaseExp):
         self.degrees = 10.0
         # translate range, for example, if set to 0.1, the true range is (-0.1, 0.1)
         self.translate = 0.1
-        self.mosaic_scale = (0.25, 2)
+        self.mosaic_scale = (0.5, 1.5)
         # apply mixup aug or not
         self.enable_mixup = True
         self.mixup_scale = (0.5, 1.5)
@@ -113,7 +113,7 @@ class Exp(BaseExp):
         self.sr = 0.0002  # L1 normal sparse rate
 
     def get_model(self, deploy=False):
-        from yolox.models import YOLOX, YOLOPAFPN_Rep, YOLOXHead
+        from yolox.models import YOLOX, YOLOPAFPN, YOLOXHead
 
         def init_yolo(M):
             for m in M.modules():
@@ -123,11 +123,8 @@ class Exp(BaseExp):
 
         if getattr(self, "model", None) is None:
             in_channels = [256, 512, 1024]  # in channels for head
-            # in_channels = [256, 256, 512]
             strides = [8, 16, 32]  # p2 p3 p4
-            # strides = [4, 8, 16]
-            # backbone = YOLOPAFPN(self.depth, self.width)
-            backbone = YOLOPAFPN(self.depth, self.width, deploy=deploy)
+            backbone = YOLOPAFPN(self.depth, self.width)
             head = YOLOXHead(self.num_classes, self.width, strides=strides, in_channels=in_channels, act=self.act)
             self.model = YOLOX(backbone, head)
 

@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 # Copyright (c) Megvii Inc. All rights reserved.
-import math
-
 import torch
 import torch.nn as nn
 

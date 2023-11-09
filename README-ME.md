@@ -63,6 +63,7 @@ parse_rec处修改xml文件的加载路径
 
 ```shell
 python -m yolox.tools.train -f exps/example/yolox_voc/yolox_voc_s.py -d 1 -b 32 --fp16 -o
+python -m yolox.tools.train -f exps/example/custom/yolox_tiny.py -d 1 -b 40 --fp16
 ```
 
 - 验证

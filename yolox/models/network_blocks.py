@@ -5,7 +5,6 @@ import math
 
 import torch
 import torch.nn as nn
-from yolox.models.rep.diversebranchblock import DiverseBranchBlock
 
 
 class SiLU(nn.Module):
@@ -337,42 +336,4 @@ class Shuffle_Block(nn.Module):
 
 
 # ———————————————————————————shuffle block end——————————————————————————
-class DiverseBottleneck(nn.Module):
-    def __init__(
-            self,
-            in_channels,
-            out_channels,
-            shortcut=True,
-            expansion=0.5,
-            act="silu",
-            deploy=False
-    ):
-        super().__init__()
-        hidden_channels = int(out_channels * expansion)
-        self.conv1 = BaseConv(in_channels, hidden_channels, 1, stride=1, act=act)
-        self.conv2 = DiverseBranchBlock(hidden_channels, out_channels, 3, 1, deploy=deploy)
-        self.use_add = shortcut and in_channels == out_channels
-
-    def forward(self, x):
-        y = self.conv2(self.conv1(x))
-        if self.use_add:
-            y = y + x
-        return y
-
-
-class CSP_DBB(CSPLayer):
-    # C3 module with DBB
-    def __init__(self, c1, c2, n=1, shortcut=True, e=0.5, depthwise=False, act="silu", deploy=False):
-        super().__init__(c1, c2, n, shortcut, e, depthwise, act)
-        hidden_channels = int(c2 * e)  # hidden channels
-        self.conv1 = BaseConv(c1, hidden_channels, 1, stride=1, act=act)
-        self.conv2 = BaseConv(c1, hidden_channels, 1, stride=1, act=act)
-        self.conv3 = BaseConv(2 * hidden_channels, c2, 1, stride=1, act=act)
-        module_list = [
-            DiverseBottleneck(
-                hidden_channels, hidden_channels, shortcut, 1.0, act, deploy
-            )
-            for _ in range(n)
-        ]
-        self.m = nn.Sequential(*module_list)
 

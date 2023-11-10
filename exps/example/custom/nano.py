@@ -14,19 +14,19 @@ class Exp(MyExp):
         super(Exp, self).__init__()
         self.depth = 0.33
         self.width = 0.25
-        self.input_size = (416, 416)
+        self.input_size = (768, 416)
         self.mosaic_scale = (0.5, 1.5)
-        self.random_size = (10, 20)
-        self.test_size = (416, 416)
+        # self.random_size = (10, 20)
+        self.test_size = (768, 416)
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
         self.enable_mixup = False
 
         # Define yourself dataset path
-        self.data_dir = "datasets/coco128"
+        self.data_dir = "datasets/coco"
         self.train_ann = "instances_train2017.json"
         self.val_ann = "instances_val2017.json"
 
-        self.num_classes = 71
+        self.num_classes = 1
 
     def get_model(self, sublinear=False):
 

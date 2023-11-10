@@ -7,7 +7,7 @@ import torch.nn as nn
 import math
 
 class IOUloss(nn.Module):
-    def __init__(self, reduction="none", loss_type="ciou"):
+    def __init__(self, reduction="none", loss_type="giou"):
         super(IOUloss, self).__init__()
         self.reduction = reduction
         self.loss_type = loss_type

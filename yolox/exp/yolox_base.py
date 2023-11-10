@@ -89,7 +89,7 @@ class Exp(BaseExp):
         self.momentum = 0.9
         # log period in iter, for example,
         # if set to 1, user could see log every iteration.
-        self.print_interval = 10
+        self.print_interval = 50
         # eval period in epoch, for example,
         # if set to 1, model will be evaluate after every epoch.
         self.eval_interval = 5

@@ -3,6 +3,8 @@
 # Copyright (c) Megvii Inc. All rights reserved.
 import torch
 import torch.nn as nn
+import numpy as np
+import torch.nn.functional as F
 
 
 class SiLU(nn.Module):
@@ -20,6 +22,8 @@ def get_activation(name="silu", inplace=True):
         module = nn.ReLU(inplace=inplace)
     elif name == "lrelu":
         module = nn.LeakyReLU(0.1, inplace=inplace)
+    elif name == "hard_swish":
+        module = nn.Hardswish(inplace=inplace)
     else:
         raise AttributeError("Unsupported act type: {}".format(name))
     return module
@@ -334,4 +338,247 @@ class Shuffle_Block(nn.Module):
 
 
 # ———————————————————————————shuffle block end——————————————————————————
+# ---------------------build enhanced shuffle block-------------------------
+class GhostConv(nn.Module):
+    # Ghost Convolution https://github.com/huawei-noah/ghostnet
+    def __init__(self, c1, c2, k=3, s=1, g=1, act="hard_swish"):  # ch_in, ch_out, kernel, stride, groups
+        super().__init__()
+        c_ = c2 // 2  # hidden channels
+        self.cv1 = BaseConv(c1, c_, 1, s, g, act=act)
+        self.cv2 = BaseConv(c_, c_, k, s, c_, act=act)
 
+    def forward(self, x):
+        y = self.cv1(x)
+        return torch.cat((y, self.cv2(y)), dim=1)
+
+
+class ES_SEModule(nn.Module):
+    def __init__(self, channel, reduction=4):
+        super().__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.conv1 = nn.Conv2d(
+            in_channels=channel,
+            out_channels=channel // reduction,
+            kernel_size=1,
+            stride=1,
+            padding=0)
+        self.relu = nn.ReLU()
+        self.conv2 = nn.Conv2d(
+            in_channels=channel // reduction,
+            out_channels=channel,
+            kernel_size=1,
+            stride=1,
+            padding=0)
+        self.hardsigmoid = nn.Hardsigmoid()
+
+    def forward(self, x):
+        identity = x
+        x = self.avg_pool(x)
+        x = self.conv1(x)
+        x = self.relu(x)
+        x = self.conv2(x)
+        x = self.hardsigmoid(x)
+        out = identity * x
+        return out
+
+
+class ES_Block(nn.Module):
+    """
+    inp : 输入通道
+    oup ：输出通道
+    stride ： 步长
+    """
+
+    def __init__(self, inp, oup, stride):
+        super(ES_Block, self).__init__()
+
+        if not (1 <= stride <= 3):
+            raise ValueError('illegal stride value')
+        self.stride = stride
+
+        branch_features = oup // 2
+        # assert (self.stride != 1) or (inp == branch_features << 1)
+
+        if self.stride > 1:
+            # 3 * 3的分组卷积 + BN  + 1 * 1卷积 + BN + Hswish
+            self.branch1 = nn.Sequential(
+                self.depthwise_conv(inp, inp, kernel_size=3, stride=self.stride, padding=1),
+                nn.BatchNorm2d(inp),
+                nn.Conv2d(inp, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+                nn.BatchNorm2d(branch_features),
+                nn.Hardswish(inplace=True),
+            )
+        if self.stride > 1:
+            self.branch2 = nn.Sequential(
+                nn.Conv2d(inp if (self.stride > 1) else branch_features,
+                          branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+                nn.BatchNorm2d(branch_features),
+                nn.Hardswish(inplace=True),
+                self.depthwise_conv(branch_features, branch_features, kernel_size=3, stride=self.stride, padding=1),
+                nn.BatchNorm2d(branch_features),
+                ES_SEModule(branch_features),
+                nn.Conv2d(branch_features, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+                nn.BatchNorm2d(branch_features),
+                nn.Hardswish(inplace=True),
+            )
+        else:  # 步长为1的分支
+            self.branch2 = nn.Sequential(
+                GhostConv(branch_features, branch_features, 3, 1),
+                ES_SEModule(branch_features),
+                nn.Conv2d(branch_features, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+                nn.BatchNorm2d(branch_features),
+                nn.Hardswish(inplace=True),
+            )
+        # concat后接上一个深度可分离卷积
+        if self.stride > 1:
+            self.branch3 = nn.Sequential(
+                self.depthwise_conv(oup, oup, kernel_size=3, stride=1, padding=1),
+                nn.BatchNorm2d(oup),
+                nn.Conv2d(oup, oup, kernel_size=1, stride=1, padding=0, bias=False),
+                nn.BatchNorm2d(oup),
+                nn.Hardswish(inplace=True),
+            )
+
+    # 分组卷积
+    @staticmethod
+    def depthwise_conv(i, o, kernel_size=3, stride=1, padding=0, bias=False):
+        return nn.Conv2d(i, o, kernel_size, stride, padding, bias=bias, groups=i)
+
+    # 1 * 1卷积
+    @staticmethod
+    def conv1x1(i, o, kernel_size=1, stride=1, padding=0, bias=False):
+        return nn.Conv2d(i, o, kernel_size, stride, padding, bias=bias)
+
+    def forward(self, x):
+        if self.stride == 1:
+            x1, x2 = x.chunk(2, dim=1)
+            x3 = torch.cat((x1, self.branch2(x2)), dim=1)
+            out = channel_shuffle(x3, 2)
+        else:
+            x1 = torch.cat((self.branch1(x), self.branch2(x)), dim=1)
+            out = self.branch3(x1)
+
+        return out
+
+
+# --------------------------enhanced shuffle block end-------------------------------
+# --------------------------build rep_vgg block-----------------------------------------
+def conv_bn(in_channels, out_channels, kernel_size, stride, padding, groups=1):
+    result = nn.Sequential()
+    result.add_module('conv', nn.Conv2d(in_channels=in_channels, out_channels=out_channels,
+                                        kernel_size=kernel_size, stride=stride, padding=padding, groups=groups,
+                                        bias=False))
+    result.add_module('bn', nn.BatchNorm2d(num_features=out_channels))
+
+    return result
+
+
+class SEBlock(nn.Module):
+
+    def __init__(self, input_channels, internal_neurons):
+        super(SEBlock, self).__init__()
+        self.down = nn.Conv2d(in_channels=input_channels, out_channels=internal_neurons, kernel_size=1, stride=1,
+                              bias=True)
+        self.up = nn.Conv2d(in_channels=internal_neurons, out_channels=input_channels, kernel_size=1, stride=1,
+                            bias=True)
+        self.input_channels = input_channels
+
+    def forward(self, inputs):
+        x = F.avg_pool2d(inputs, kernel_size=inputs.size(3))
+        x = self.down(x)
+        x = F.relu(x)
+        x = self.up(x)
+        x = torch.sigmoid(x)
+        x = x.view(-1, self.input_channels, 1, 1)
+        return inputs * x
+
+
+class RepVGGBlock(nn.Module):
+
+    def __init__(self, in_channels, out_channels, kernel_size=3,
+                 stride=1, padding=1, dilation=1, groups=1, padding_mode='zeros', deploy=False, use_se=False, act="hard_swish"):
+        super(RepVGGBlock, self).__init__()
+        self.deploy = deploy
+        self.groups = groups
+        self.in_channels = in_channels
+
+        padding_11 = padding - kernel_size // 2
+
+        self.nonlinearity = get_activation(act, inplace=True)
+
+        # self.nonlinearity = nn.ReLU()
+
+        if use_se:
+            self.se = SEBlock(out_channels, internal_neurons=out_channels // 16)
+        else:
+            self.se = nn.Identity()
+
+        if deploy:
+            self.rbr_reparam = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
+                                         stride=stride,
+                                         padding=padding, dilation=dilation, groups=groups, bias=True,
+                                         padding_mode=padding_mode)
+
+        else:
+            self.rbr_identity = nn.BatchNorm2d(
+                num_features=in_channels) if out_channels == in_channels and stride == 1 else None
+            self.rbr_dense = conv_bn(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
+                                     stride=stride, padding=padding, groups=groups)
+            self.rbr_1x1 = conv_bn(in_channels=in_channels, out_channels=out_channels, kernel_size=1, stride=stride,
+                                   padding=padding_11, groups=groups)
+            # print('RepVGG Block, identity = ', self.rbr_identity)
+
+    def get_equivalent_kernel_bias(self):
+        kernel3x3, bias3x3 = self._fuse_bn_tensor(self.rbr_dense)
+        kernel1x1, bias1x1 = self._fuse_bn_tensor(self.rbr_1x1)
+        kernelid, biasid = self._fuse_bn_tensor(self.rbr_identity)
+        return kernel3x3 + self._pad_1x1_to_3x3_tensor(kernel1x1) + kernelid, bias3x3 + bias1x1 + biasid
+
+    def _pad_1x1_to_3x3_tensor(self, kernel1x1):
+        if kernel1x1 is None:
+            return 0
+        else:
+            return torch.nn.functional.pad(kernel1x1, [1, 1, 1, 1])
+
+    def _fuse_bn_tensor(self, branch):
+        if branch is None:
+            return 0, 0
+        if isinstance(branch, nn.Sequential):
+            kernel = branch.conv.weight
+            running_mean = branch.bn.running_mean
+            running_var = branch.bn.running_var
+            gamma = branch.bn.weight
+            beta = branch.bn.bias
+            eps = branch.bn.eps
+        else:
+            assert isinstance(branch, nn.BatchNorm2d)
+            if not hasattr(self, 'id_tensor'):
+                input_dim = self.in_channels // self.groups
+                kernel_value = np.zeros((self.in_channels, input_dim, 3, 3), dtype=np.float32)
+                for i in range(self.in_channels):
+                    kernel_value[i, i % input_dim, 1, 1] = 1
+                self.id_tensor = torch.from_numpy(kernel_value).to(branch.weight.device)
+            kernel = self.id_tensor
+            running_mean = branch.running_mean
+            running_var = branch.running_var
+            gamma = branch.weight
+            beta = branch.bias
+            eps = branch.eps
+        std = (running_var + eps).sqrt()
+        t = (gamma / std).reshape(-1, 1, 1, 1)
+        return kernel * t, beta - running_mean * gamma / std
+
+    def forward(self, inputs):
+        if hasattr(self, 'rbr_reparam'):
+            return self.nonlinearity(self.se(self.rbr_reparam(inputs)))
+
+        if self.rbr_identity is None:
+            id_out = 0
+        else:
+            id_out = self.rbr_identity(inputs)
+
+        return self.nonlinearity(self.se(self.rbr_dense(inputs) + self.rbr_1x1(inputs) + id_out))
+
+    def fusevggforward(self, x):
+        return self.nonlinearity(self.rbr_dense(x))
+# -------------------------rep_vgg block end------------------------------------------

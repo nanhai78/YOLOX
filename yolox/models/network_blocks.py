@@ -155,6 +155,23 @@ class SPPBottleneck(nn.Module):
         return x
 
 
+class SPPF(nn.Module):
+    def __init__(
+            self, in_channels, out_channels, k=5, activation="silu"
+    ):
+        super(SPPF, self).__init__()
+        hidden_channels = in_channels // 2
+        self.conv1 = BaseConv(in_channels, hidden_channels, 1, stride=1, act=activation)
+        self.conv2 = BaseConv(hidden_channels * 4, out_channels, 1, stride=1, act=activation)
+        self.m = nn.MaxPool2d(kernel_size=k, stride=1, padding=k // 2)  # 窗口大小为5的maxpool
+
+    def forward(self, x):
+        x = self.conv1(x)
+        y1 = self.m(x)
+        y2 = self.m(y1)
+        return self.conv2(torch.cat((x, y1, y2, self.m(y2)), 1))
+
+
 class CSPLayer(nn.Module):
     """C3 in yolov5, CSP Bottleneck with 3 convolutions"""
 
@@ -496,7 +513,8 @@ class SEBlock(nn.Module):
 class RepVGGBlock(nn.Module):
 
     def __init__(self, in_channels, out_channels, kernel_size=3,
-                 stride=1, padding=1, dilation=1, groups=1, padding_mode='zeros', deploy=False, use_se=False, act="hard_swish"):
+                 stride=1, padding=1, dilation=1, groups=1, padding_mode='zeros', deploy=False, use_se=False,
+                 act="hard_swish"):
         super(RepVGGBlock, self).__init__()
         self.deploy = deploy
         self.groups = groups
@@ -505,8 +523,6 @@ class RepVGGBlock(nn.Module):
         padding_11 = padding - kernel_size // 2
 
         self.nonlinearity = get_activation(act, inplace=True)
-
-        # self.nonlinearity = nn.ReLU()
 
         if use_se:
             self.se = SEBlock(out_channels, internal_neurons=out_channels // 16)
@@ -581,4 +597,6 @@ class RepVGGBlock(nn.Module):
 
     def fusevggforward(self, x):
         return self.nonlinearity(self.rbr_dense(x))
+
+
 # -------------------------rep_vgg block end------------------------------------------

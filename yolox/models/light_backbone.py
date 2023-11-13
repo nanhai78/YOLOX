@@ -1,5 +1,5 @@
 from torch import nn
-from .network_blocks import BaseConv, RepVGGBlock, ES_Block, SPPF
+from .network_blocks import BaseConv, RepVGGBlock, ES_Block1, SPPF, ES_Block2
 
 """
     stem => 6 * 6卷积
@@ -20,7 +20,7 @@ class PicoNet(nn.Module):
         super().__init__()
         assert out_features, "please provide output features of Darknet"
         if base_depth is None:
-            base_depth = [3, 7, 7, 3]  # repeat number of es_block
+            base_depth = [1, 3, 7, 3]  # repeat number of es_block
         self.out_features = out_features
         base_channels = int(wid_mul * 64)  # 64
 
@@ -29,28 +29,31 @@ class PicoNet(nn.Module):
 
         # dark2
         self.dark2 = nn.Sequential(
-            RepVGGBlock(base_channels, base_channels * 2, 3, 2, act=act),
-            *[ES_Block(base_channels * 2, base_channels * 2, 1) for _ in range(base_depth[0])]
+            # BaseConv(base_channels, base_channels * 2, 3, 2, act=act),
+            ES_Block2(base_channels, base_channels * 2),
+            *[ES_Block1(base_channels * 2, base_channels * 2) for _ in range(base_depth[0])]
         )
 
         # dark3
         self.dark3 = nn.Sequential(
-            RepVGGBlock(base_channels * 2, base_channels * 4, 3, 2, act=act),
-            *[ES_Block(base_channels * 4, base_channels * 4, 1) for _ in range(base_depth[1])]
+            # BaseConv(base_channels * 2, base_channels * 4, 3, 2, act=act),
+            ES_Block2(base_channels * 2, base_channels * 4),
+            *[ES_Block1(base_channels * 4, base_channels * 4) for _ in range(base_depth[1])]
         )
 
         # dark4
         self.dark4 = nn.Sequential(
-            RepVGGBlock(base_channels * 4, base_channels * 8, 3, 2, act=act),
-            *[ES_Block(base_channels * 8, base_channels * 8, 1) for _ in range(base_depth[2])]
+            # BaseConv(base_channels * 4, base_channels * 8, 3, 2, act=act),
+            ES_Block2(base_channels * 4, base_channels * 8),
+            *[ES_Block1(base_channels * 8, base_channels * 8) for _ in range(base_depth[2])]
         )
-
-        # dark5
         self.dark5 = nn.Sequential(
-            RepVGGBlock(base_channels * 8, base_channels * 16, 3, 2, act=act),
-            SPPF(base_channels * 16, base_channels * 16, activation=act),  # spp
-            *[ES_Block(base_channels * 16, base_channels * 16, 1) for _ in range(base_depth[3])]  # csp
+            # BaseConv(base_channels * 8, base_channels * 16, 3, 2, act=act),
+            ES_Block2(base_channels * 8, base_channels * 16),
+            *[ES_Block1(base_channels * 16, base_channels * 16) for _ in range(base_depth[3])],  # csp
+            SPPF(base_channels * 16, base_channels * 16, activation=act)  # spp
         )
+        # dark5
 
     def forward(self, x):
         outputs = {}

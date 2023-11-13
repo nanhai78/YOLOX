@@ -399,6 +399,71 @@ class ES_SEModule(nn.Module):
         return out
 
 
+class ES_Block1(nn.Module):
+    def __init__(self, inp, oup):
+        super().__init__()
+        branch_features = oup // 2
+        self.branch = nn.Sequential(
+            GhostConv(branch_features, branch_features, 3, 1),
+            ES_SEModule(branch_features),
+            nn.Conv2d(branch_features, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(branch_features),
+            nn.Hardswish(inplace=True),
+        )
+
+    def forward(self, x):
+        x1, x2 = x.chunk(2, dim=1)
+        x3 = torch.cat((x1, self.branch(x2)), dim=1)
+        out = channel_shuffle(x3, 2)
+        return out
+
+
+class ES_Block2(nn.Module):
+    def __init__(self, inp, oup):
+        super().__init__()
+        branch_features = oup // 2
+        self.branch1 = nn.Sequential(
+            self.depthwise_conv(inp, inp, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(inp),
+            nn.Conv2d(inp, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(branch_features),
+            nn.Hardswish(inplace=True),
+        )
+        self.branch2 = nn.Sequential(
+            nn.Conv2d(inp, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(branch_features),
+            nn.Hardswish(inplace=True),
+            self.depthwise_conv(branch_features, branch_features, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(branch_features),
+            ES_SEModule(branch_features),
+            nn.Conv2d(branch_features, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(branch_features),
+            nn.Hardswish(inplace=True),
+        )
+        self.branch3 = nn.Sequential(
+            self.depthwise_conv(oup, oup, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(oup),
+            nn.Conv2d(oup, oup, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(oup),
+            nn.Hardswish(inplace=True),
+        )
+
+    # 分组卷积
+    @staticmethod
+    def depthwise_conv(i, o, kernel_size=3, stride=1, padding=0, bias=False):
+        return nn.Conv2d(i, o, kernel_size, stride, padding, bias=bias, groups=i)
+
+    # 1 * 1卷积
+    @staticmethod
+    def conv1x1(i, o, kernel_size=1, stride=1, padding=0, bias=False):
+        return nn.Conv2d(i, o, kernel_size, stride, padding, bias=bias)
+
+    def forward(self, x):
+        x1 = torch.cat((self.branch1(x), self.branch2(x)), dim=1)
+        out = self.branch3(x1)
+        return out
+
+
 class ES_Block(nn.Module):
     """
     inp : 输入通道
@@ -597,6 +662,5 @@ class RepVGGBlock(nn.Module):
 
     def fusevggforward(self, x):
         return self.nonlinearity(self.rbr_dense(x))
-
 
 # -------------------------rep_vgg block end------------------------------------------

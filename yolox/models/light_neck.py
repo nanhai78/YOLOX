@@ -8,6 +8,7 @@ import torch.nn as nn
 from .light_backbone import PicoNet
 from .network_blocks import BaseConv, CSPLayer, DWConv
 from .slim_neck import GSConv, VoVGSCSP
+from .darknet import CSPDarknet
 
 
 class YOLOPAFPN_Pico(nn.Module):
@@ -131,7 +132,7 @@ class YOLOPAFPN_Gs(nn.Module):
             act="silu",
     ):
         super().__init__()
-        self.backbone = PicoNet(wid_mul=width, base_depth=[1, 3, 7, 3])
+        self.backbone = CSPDarknet(depth, width, depthwise=depthwise, act=act)
         self.in_features = in_features
         self.in_channels = in_channels
         Conv = DWConv if depthwise else BaseConv

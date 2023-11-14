@@ -29,7 +29,7 @@ class Exp(MyExp):
         self.num_classes = 1
 
     def get_model(self, deploy=False):
-        from yolox.models import YOLOX, YOLOPAFPN_Pico, YOLOXHead
+        from yolox.models import YOLOX, YOLOPAFPN_Gs, YOLOXHead
 
         def init_yolo(M):
             for m in M.modules():
@@ -39,7 +39,7 @@ class Exp(MyExp):
 
         if getattr(self, "model", None) is None:
             in_channels = [256, 512, 1024]  # in channels for head
-            backbone = YOLOPAFPN_Pico(self.depth, self.width)
+            backbone = YOLOPAFPN_Gs(self.depth, self.width)
             head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels, act=self.act)
             self.model = YOLOX(backbone, head)
 

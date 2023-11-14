@@ -10,4 +10,4 @@ from .yolo_head import YOLOXHead
 from .yolo_pafpn import YOLOPAFPN
 from .yolox import YOLOX
 from .light_backbone import PicoNet
-from .light_neck import YOLOPAFPN_Pico
+from .light_neck import YOLOPAFPN_Pico, YOLOPAFPN_Gs

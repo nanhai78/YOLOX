@@ -86,13 +86,76 @@ def fuse_model(model: nn.Module) -> nn.Module:
     Returns:
         nn.Module: fused model
     """
-    from yolox.models.network_blocks import BaseConv
-
+    from yolox.models.network_blocks import BaseConv, RepVGGBlock, Shuffle_Block
+    from yolox.models.slim_neck import Conv
+    print("Fusing layers...")
     for m in model.modules():
         if type(m) is BaseConv and hasattr(m, "bn"):
             m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
             delattr(m, "bn")  # remove batchnorm
             m.forward = m.fuseforward  # update forward
+        elif type(m) is Conv and hasattr(m, "bn"):
+            m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
+            delattr(m, "bn")  # remove batchnorm
+            m.forward = m.forward_fuse
+        elif type(m) is RepVGGBlock:
+            if hasattr(m, 'rbr_1x1'):
+                kernel, bias = m.get_equivalent_kernel_bias()  # 获得融合后的权重和偏置
+                rbr_reparam = nn.Conv2d(in_channels=m.rbr_dense.conv.in_channels,  # 重参后的Conv模块
+                                        out_channels=m.rbr_dense.conv.out_channels,
+                                        kernel_size=m.rbr_dense.conv.kernel_size,
+                                        stride=m.rbr_dense.conv.stride,
+                                        padding=m.rbr_dense.conv.padding, dilation=m.rbr_dense.conv.dilation,
+                                        groups=m.rbr_dense.conv.groups, bias=True)
+                rbr_reparam.weight.data = kernel  # 给重参的Conv重新赋参
+                rbr_reparam.bias.data = bias
+                # for para in model.parameters():
+                #     para.detach_()
+                m.rbr_dense = rbr_reparam  #
+                m.__delattr__('rbr_1x1')  # 去掉 1 * 1卷积模块
+                if hasattr(m, 'rbr_identity'):  # 去掉 identity模块
+                    m.__delattr__('rbr_identity')
+                if hasattr(m, 'id_tensor'):
+                    m.__delattr__('id_tensor')  # 去掉id_tensor
+                m.deploy = True
+                delattr(m, 'se') # 删除se模块
+                m.forward = m.fusevggforward  # update forward
+        elif type(m) is Shuffle_Block:
+            if hasattr(m, 'branch1'):  # 第一个分支的融合  3*3Conv + BN + 1*1卷积 + BN + Relu =>  3 * 3卷积 + 1*1卷积 + Relu
+                re_branch1 = nn.Sequential(
+                    nn.Conv2d(m.branch1[0].in_channels, m.branch1[0].out_channels,
+                              kernel_size=m.branch1[0].kernel_size, stride=m.branch1[0].stride,
+                              padding=m.branch1[0].padding, groups=m.branch1[0].groups),
+                    nn.Conv2d(m.branch1[2].in_channels, m.branch1[2].out_channels,
+                              kernel_size=m.branch1[2].kernel_size, stride=m.branch1[2].stride,
+                              padding=m.branch1[2].padding, bias=False),
+                    nn.ReLU(inplace=True),
+                )
+                re_branch1[0] = fuse_conv_and_bn(m.branch1[0], m.branch1[1])
+                re_branch1[1] = fuse_conv_and_bn(m.branch1[2], m.branch1[3])
+                # pdb.set_trace()
+                # print(m.branch1[0])
+                m.branch1 = re_branch1
+            if hasattr(m, 'branch2'):
+                re_branch2 = nn.Sequential(
+                    nn.Conv2d(m.branch2[0].in_channels, m.branch2[0].out_channels,
+                              kernel_size=m.branch2[0].kernel_size, stride=m.branch2[0].stride,
+                              padding=m.branch2[0].padding, groups=m.branch2[0].groups),
+                    nn.ReLU(inplace=True),
+                    nn.Conv2d(m.branch2[3].in_channels, m.branch2[3].out_channels,
+                              kernel_size=m.branch2[3].kernel_size, stride=m.branch2[3].stride,
+                              padding=m.branch2[3].padding, bias=False),
+                    nn.Conv2d(m.branch2[5].in_channels, m.branch2[5].out_channels,
+                              kernel_size=m.branch2[5].kernel_size, stride=m.branch2[5].stride,
+                              padding=m.branch2[5].padding, groups=m.branch2[5].groups),
+                    nn.ReLU(inplace=True),
+                )
+                re_branch2[0] = fuse_conv_and_bn(m.branch2[0], m.branch2[1])
+                re_branch2[2] = fuse_conv_and_bn(m.branch2[3], m.branch2[4])
+                re_branch2[3] = fuse_conv_and_bn(m.branch2[5], m.branch2[6])
+                # pdb.set_trace()
+                m.branch2 = re_branch2
+
     return model
 
 

@@ -406,9 +406,7 @@ class ES_Block1(nn.Module):
         self.branch = nn.Sequential(
             GhostConv(branch_features, branch_features, 3, 1),
             ES_SEModule(branch_features),
-            nn.Conv2d(branch_features, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
-            nn.BatchNorm2d(branch_features),
-            nn.Hardswish(inplace=True),
+            BaseConv(branch_features, branch_features, ksize=1, stride=1, act="hard_swish"),
         )
 
     def forward(self, x):
@@ -587,70 +585,70 @@ class RepVGGBlock(nn.Module):
 
         padding_11 = padding - kernel_size // 2
 
-        self.nonlinearity = get_activation(act, inplace=True)
+        self.nonlinearity = get_activation(act, inplace=True)  # act
 
         if use_se:
             self.se = SEBlock(out_channels, internal_neurons=out_channels // 16)
         else:
             self.se = nn.Identity()
 
-        if deploy:
+        if deploy:  # 部署时只生成一个卷积算子
             self.rbr_reparam = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
                                          stride=stride,
                                          padding=padding, dilation=dilation, groups=groups, bias=True,
                                          padding_mode=padding_mode)
 
         else:
-            self.rbr_identity = nn.BatchNorm2d(
+            self.rbr_identity = nn.BatchNorm2d(  # BN
                 num_features=in_channels) if out_channels == in_channels and stride == 1 else None
             self.rbr_dense = conv_bn(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size,
-                                     stride=stride, padding=padding, groups=groups)
+                                     stride=stride, padding=padding, groups=groups)  # 3 * 3Conv
             self.rbr_1x1 = conv_bn(in_channels=in_channels, out_channels=out_channels, kernel_size=1, stride=stride,
-                                   padding=padding_11, groups=groups)
-            # print('RepVGG Block, identity = ', self.rbr_identity)
+                                   padding=padding_11, groups=groups)  # 1 * 1Conv
 
-    def get_equivalent_kernel_bias(self):
+    def get_equivalent_kernel_bias(self):  # 融合所有的卷积 和 恒等映射
         kernel3x3, bias3x3 = self._fuse_bn_tensor(self.rbr_dense)
         kernel1x1, bias1x1 = self._fuse_bn_tensor(self.rbr_1x1)
         kernelid, biasid = self._fuse_bn_tensor(self.rbr_identity)
         return kernel3x3 + self._pad_1x1_to_3x3_tensor(kernel1x1) + kernelid, bias3x3 + bias1x1 + biasid
 
-    def _pad_1x1_to_3x3_tensor(self, kernel1x1):
+    def _pad_1x1_to_3x3_tensor(self, kernel1x1):  # 将1 * 1卷积扩展为3 * 3卷积
         if kernel1x1 is None:
             return 0
         else:
             return torch.nn.functional.pad(kernel1x1, [1, 1, 1, 1])
 
-    def _fuse_bn_tensor(self, branch):
+    def _fuse_bn_tensor(self, branch):  # 融合conv和bn，返回新的conv权重和conv偏置
         if branch is None:
             return 0, 0
         if isinstance(branch, nn.Sequential):
-            kernel = branch.conv.weight
-            running_mean = branch.bn.running_mean
-            running_var = branch.bn.running_var
-            gamma = branch.bn.weight
-            beta = branch.bn.bias
+            kernel = branch.conv.weight  # 获取卷积算子的去权重
+            running_mean = branch.bn.running_mean  # 获取BN层的样本均值
+            running_var = branch.bn.running_var  # 获取BN层的样本方差
+            gamma = branch.bn.weight  # 获取BN层的样本gamma
+            beta = branch.bn.bias  #
             eps = branch.bn.eps
         else:
             assert isinstance(branch, nn.BatchNorm2d)
-            if not hasattr(self, 'id_tensor'):
+            if not hasattr(self, 'id_tensor'):  #
                 input_dim = self.in_channels // self.groups
-                kernel_value = np.zeros((self.in_channels, input_dim, 3, 3), dtype=np.float32)
+                kernel_value = np.zeros((self.in_channels, input_dim, 3, 3),
+                                        dtype=np.float32)  # 假设它是一个3 * 3大小的卷积核，总共有in_channels个卷积核，每个卷积核的通道数为input_dim
                 for i in range(self.in_channels):
-                    kernel_value[i, i % input_dim, 1, 1] = 1
+                    kernel_value[i, i % input_dim, 1, 1] = 1  # 将所有的卷积核的，只在一个channel上将中间位置置为1.其余还是0
                 self.id_tensor = torch.from_numpy(kernel_value).to(branch.weight.device)
-            kernel = self.id_tensor
+            kernel = self.id_tensor  # 等价于权重为1的 1 * 1大小的卷积
             running_mean = branch.running_mean
             running_var = branch.running_var
             gamma = branch.weight
             beta = branch.bias
             eps = branch.eps
         std = (running_var + eps).sqrt()
-        t = (gamma / std).reshape(-1, 1, 1, 1)
-        return kernel * t, beta - running_mean * gamma / std
+        t = (gamma / std).reshape(-1, 1, 1, 1)  # 给卷积核乘上的权重
+        return kernel * t, beta - running_mean * gamma / std  # 返回新的权重和偏置，注意原卷积核的bias应该为0
 
     def forward(self, inputs):
-        if hasattr(self, 'rbr_reparam'):
+        if hasattr(self, 'rbr_reparam'):  # 重参化
             return self.nonlinearity(self.se(self.rbr_reparam(inputs)))
 
         if self.rbr_identity is None:

@@ -141,16 +141,16 @@ class NewDarknet(nn.Module):
             ),
         )
 
-        def forward(self, x):
-            outputs = {}
-            x = self.stem(x)
-            outputs["stem"] = x
-            x = self.dark2(x)
-            outputs["dark2"] = x
-            x = self.dark3(x)
-            outputs["dark3"] = x
-            x = self.dark4(x)
-            outputs["dark4"] = x
-            x = self.dark5(x)
-            outputs["dark5"] = x
-            return {k: v for k, v in outputs.items() if k in self.out_features}
+    def forward(self, x):
+        outputs = {}
+        x = self.stem(x)
+        outputs["stem"] = x
+        x = self.dark2(x)
+        outputs["dark2"] = x
+        x = self.dark3(x)
+        outputs["dark3"] = x
+        x = self.dark4(x)
+        outputs["dark4"] = x
+        x = self.dark5(x)
+        outputs["dark5"] = x
+        return {k: v for k, v in outputs.items() if k in self.out_features}

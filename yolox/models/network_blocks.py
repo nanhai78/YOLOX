@@ -407,9 +407,9 @@ class ES_Block1(nn.Module):
 
         self.conv1 = BaseConv(branch_channels, hidden_channels, 1, 1, act=act)
         self.m = nn.ModuleList()
-        for i in k_sizes:
+        for k_size in k_sizes:
             self.m.append(
-                BaseConv(hidden_channels, hidden_channels, k_sizes[i], 1, groups=hidden_channels, act=act)
+                BaseConv(hidden_channels, hidden_channels, k_size, 1, groups=hidden_channels, act=act)
             )
         self.se = None
         if SE:

@@ -94,7 +94,7 @@ class NewDarknet(nn.Module):
 
         # dark2
         self.dark2 = nn.Sequential(
-            Conv(base_channels, base_channels * 2, 3, 2, act=act),
+            RepVGGBlock(base_channels, base_channels * 2, 3, 2, act=act),
             CSPLayer(
                 base_channels * 2,
                 base_channels * 2,
@@ -106,7 +106,7 @@ class NewDarknet(nn.Module):
 
         # dark3
         self.dark3 = nn.Sequential(
-            Conv(base_channels * 2, base_channels * 4, 3, 2, act=act),
+            RepVGGBlock(base_channels * 2, base_channels * 4, 3, 2, act=act),
             ES_Block1(
                 base_channels * 4,
                 base_channels * 4,
@@ -117,7 +117,7 @@ class NewDarknet(nn.Module):
 
         # dark4
         self.dark4 = nn.Sequential(
-            Conv(base_channels * 4, base_channels * 8, 3, 2, act=act),
+            RepVGGBlock(base_channels * 4, base_channels * 8, 3, 2, act=act),
             ES_Block1(
                 base_channels * 8,
                 base_channels * 8,
@@ -129,7 +129,7 @@ class NewDarknet(nn.Module):
 
         # dark5
         self.dark5 = nn.Sequential(
-            Conv(base_channels * 8, base_channels * 16, 3, 2, act=act),
+            RepVGGBlock(base_channels * 8, base_channels * 16, 3, 2, act=act),
             SPPBottleneck(base_channels * 16, base_channels * 16, activation=act),
             ES_Block1
                 (

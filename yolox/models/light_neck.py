@@ -116,7 +116,7 @@ class YOLOPAFPN_Pico(nn.Module):
         return outputs
 
 
-class YOLOPAFPN_Gs(nn.Module):
+class YOLO_SlimNeck(nn.Module):
     """
     YOLOv3 model. Darknet 53 is the default backbone of this model.
     """
@@ -131,7 +131,7 @@ class YOLOPAFPN_Gs(nn.Module):
             act="silu",
     ):
         super().__init__()
-        self.backbone = CSPDarknet(depth, width, depthwise=depthwise, act=act)
+        self.backbone = NewDarknet(depth, width, depthwise=depthwise, act=act)
         self.in_features = in_features
         self.in_channels = in_channels
         Conv = DWConv if depthwise else BaseConv

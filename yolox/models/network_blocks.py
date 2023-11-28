@@ -399,9 +399,9 @@ class ES_SEModule(nn.Module):
         return out
 
 
-class ES_Block1(nn.Module):
+class ES_Block(nn.Module):
     def __init__(self, c1, c2, k_sizes=(5, 9, 13), SE=False, act="hard_swish"):
-        super(ES_Block1, self).__init__()
+        super(ES_Block, self).__init__()
         branch_channels = c1 // 2
         hidden_channels = branch_channels // 4
 
@@ -424,87 +424,8 @@ class ES_Block1(nn.Module):
             x1 = self.se(x1)
         x1 = self.pw(x1)
         x = torch.cat((x1, x2), dim=1)
-        channel_shuffle(x, 2)
+        x = channel_shuffle(x, 2)
         return x
-
-
-class ES_Block(nn.Module):
-    """
-    inp : 输入通道
-    oup ：输出通道
-    stride ： 步长
-    """
-
-    def __init__(self, inp, oup, stride):
-        super(ES_Block, self).__init__()
-
-        if not (1 <= stride <= 3):
-            raise ValueError('illegal stride value')
-        self.stride = stride
-
-        branch_features = oup // 2
-        # assert (self.stride != 1) or (inp == branch_features << 1)
-
-        if self.stride > 1:
-            # 3 * 3的分组卷积 + BN  + 1 * 1卷积 + BN + Hswish
-            self.branch1 = nn.Sequential(
-                self.depthwise_conv(inp, inp, kernel_size=3, stride=self.stride, padding=1),
-                nn.BatchNorm2d(inp),
-                nn.Conv2d(inp, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
-                nn.BatchNorm2d(branch_features),
-                nn.Hardswish(inplace=True),
-            )
-        if self.stride > 1:
-            self.branch2 = nn.Sequential(
-                nn.Conv2d(inp if (self.stride > 1) else branch_features,
-                          branch_features, kernel_size=1, stride=1, padding=0, bias=False),
-                nn.BatchNorm2d(branch_features),
-                nn.Hardswish(inplace=True),
-                self.depthwise_conv(branch_features, branch_features, kernel_size=3, stride=self.stride, padding=1),
-                nn.BatchNorm2d(branch_features),
-                ES_SEModule(branch_features),
-                nn.Conv2d(branch_features, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
-                nn.BatchNorm2d(branch_features),
-                nn.Hardswish(inplace=True),
-            )
-        else:  # 步长为1的分支
-            self.branch2 = nn.Sequential(
-                GhostConv(branch_features, branch_features, 3, 1),
-                ES_SEModule(branch_features),
-                nn.Conv2d(branch_features, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
-                nn.BatchNorm2d(branch_features),
-                nn.Hardswish(inplace=True),
-            )
-        # concat后接上一个深度可分离卷积
-        if self.stride > 1:
-            self.branch3 = nn.Sequential(
-                self.depthwise_conv(oup, oup, kernel_size=3, stride=1, padding=1),
-                nn.BatchNorm2d(oup),
-                nn.Conv2d(oup, oup, kernel_size=1, stride=1, padding=0, bias=False),
-                nn.BatchNorm2d(oup),
-                nn.Hardswish(inplace=True),
-            )
-
-    # 分组卷积
-    @staticmethod
-    def depthwise_conv(i, o, kernel_size=3, stride=1, padding=0, bias=False):
-        return nn.Conv2d(i, o, kernel_size, stride, padding, bias=bias, groups=i)
-
-    # 1 * 1卷积
-    @staticmethod
-    def conv1x1(i, o, kernel_size=1, stride=1, padding=0, bias=False):
-        return nn.Conv2d(i, o, kernel_size, stride, padding, bias=bias)
-
-    def forward(self, x):
-        if self.stride == 1:
-            x1, x2 = x.chunk(2, dim=1)
-            x3 = torch.cat((x1, self.branch2(x2)), dim=1)
-            out = channel_shuffle(x3, 2)
-        else:
-            x1 = torch.cat((self.branch1(x), self.branch2(x)), dim=1)
-            out = self.branch3(x1)
-
-        return out
 
 
 # --------------------------enhanced shuffle block end-------------------------------

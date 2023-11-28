@@ -5,7 +5,7 @@
 import torch
 import torch.nn as nn
 
-from .light_backbone import PicoNet, NewDarknet
+from .light_backbone import NewDarknet
 from .network_blocks import BaseConv, CSPLayer, DWConv
 from .slim_neck import GSConv, VoVGSCSP
 

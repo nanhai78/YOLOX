@@ -20,7 +20,7 @@ class Exp(MyExp):
         self.test_size = (768, 416)
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
         self.enable_mixup = False
-        self.flip_prob = 0
+        self.flip_prob = 0.5
 
 
         # Define yourself dataset path

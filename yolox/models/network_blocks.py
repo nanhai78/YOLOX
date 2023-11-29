@@ -403,7 +403,7 @@ class ES_Block(nn.Module):
     def __init__(self, c1, c2, k_sizes=(5, 9, 13), SE=False, act="hard_swish"):
         super(ES_Block, self).__init__()
         branch_channels = c1 // 2
-        hidden_channels = branch_channels // 4
+        hidden_channels = branch_channels // (len(k_sizes) + 1)
 
         self.conv1 = BaseConv(branch_channels, hidden_channels, 1, 1, act=act)
         self.m = nn.ModuleList()

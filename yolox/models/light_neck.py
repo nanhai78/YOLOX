@@ -137,16 +137,51 @@ class YOLO_SlimNeck(nn.Module):
         Conv = DWConv if depthwise else BaseConv
 
         self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
+        # self.lateral_conv0 = GSConv(
+        #     int(in_channels[2] * width), int(in_channels[1] * width), 1, 1
+        # )
+        # self.C3_p4 = VoVGSCSP(
+        #     int(2 * in_channels[1] * width),
+        #     int(in_channels[1] * width),
+        # )  # cat
+        #
+        # self.reduce_conv1 = GSConv(
+        #     int(in_channels[1] * width), int(in_channels[0] * width), 1, 1
+        # )
+        # self.C3_p3 = VoVGSCSP(
+        #     int(2 * in_channels[0] * width),
+        #     int(in_channels[0] * width),
+        # )
+        #
+        # # bottom-up conv
+        # self.bu_conv2 = GSConv(
+        #     int(in_channels[0] * width), int(in_channels[0] * width), 3, 2
+        # )
+        # self.C3_n3 = VoVGSCSP(
+        #     int(2 * in_channels[0] * width),
+        #     int(in_channels[1] * width),
+        # )
+        #
+        # # bottom-up conv
+        # self.bu_conv1 = GSConv(
+        #     int(in_channels[1] * width), int(in_channels[1] * width), 3, 2
+        # )
+        # self.C3_n4 = VoVGSCSP(
+        #     int(2 * in_channels[1] * width),
+        #     int(in_channels[2] * width),
+        # )
+
+        # 512 256 128
         self.lateral_conv0 = GSConv(
-            int(in_channels[2] * width), int(in_channels[1] * width), 1, 1
+            int(in_channels[2] * width), int(in_channels[0] * width), 1, 1
         )
         self.C3_p4 = VoVGSCSP(
-            int(2 * in_channels[1] * width),
-            int(in_channels[1] * width),
+            int(in_channels[1] * width) + int(in_channels[0] * width),
+            int(in_channels[0] * width),
         )  # cat
 
         self.reduce_conv1 = GSConv(
-            int(in_channels[1] * width), int(in_channels[0] * width), 1, 1
+            int(in_channels[0] * width), int(in_channels[0] * width), 1, 1
         )
         self.C3_p3 = VoVGSCSP(
             int(2 * in_channels[0] * width),
@@ -159,16 +194,16 @@ class YOLO_SlimNeck(nn.Module):
         )
         self.C3_n3 = VoVGSCSP(
             int(2 * in_channels[0] * width),
-            int(in_channels[1] * width),
+            int(in_channels[0] * width),
         )
 
         # bottom-up conv
         self.bu_conv1 = GSConv(
-            int(in_channels[1] * width), int(in_channels[1] * width), 3, 2
+            int(in_channels[0] * width), int(in_channels[0] * width), 3, 2
         )
         self.C3_n4 = VoVGSCSP(
-            int(2 * in_channels[1] * width),
-            int(in_channels[2] * width),
+            int(2 * in_channels[0] * width),
+            int(in_channels[0] * width),
         )
 
     def forward(self, input):

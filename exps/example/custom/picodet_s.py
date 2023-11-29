@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding:utf-8 -*-
+# python -m yolox.tools.train -f exps/example/custom/picodet_s.py -d 1 -b 40
 # Copyright (c) Megvii, Inc. and its affiliates.
 
 import os

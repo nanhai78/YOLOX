@@ -11,7 +11,7 @@ width = 0.50
 depth = 0.33
 
 backbone = YOLO_SlimNeck(depth, width)
-head = YOLOXHead(1, width)
+head = YOLOXHead(1, width, in_channels=[256, 256, 256])
 model = YOLOX(backbone, head)
 model = model.eval()
 model = model.to(device)

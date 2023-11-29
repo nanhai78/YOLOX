@@ -25,7 +25,7 @@ class NewDarknet(nn.Module):
 
         # dark2
         self.dark2 = nn.Sequential(
-            RepVGGBlock(base_channels, base_channels * 2, 3, 2, act=act),
+            Conv(base_channels, base_channels * 2, 3, 2, act=act),
             CSPLayer(
                 base_channels * 2,
                 base_channels * 2,
@@ -37,7 +37,7 @@ class NewDarknet(nn.Module):
 
         # dark3
         self.dark3 = nn.Sequential(
-            RepVGGBlock(base_channels * 2, base_channels * 4, 3, 2, act=act),
+            Conv(base_channels * 2, base_channels * 4, 3, 2, act=act),
             # CSPLayer(
             #     base_channels * 4,
             #     base_channels * 4,
@@ -45,12 +45,12 @@ class NewDarknet(nn.Module):
             #     depthwise=depthwise,
             #     act=act,
             # ),
-            ES_Block(base_channels * 4, base_channels * 4, k_sizes=[3, 5, 7], SE=False, act=act)
+            ES_Block(base_channels * 4, base_channels * 4, k_sizes=[5], SE=False, act=act)
         )
 
         # dark4
         self.dark4 = nn.Sequential(
-            RepVGGBlock(base_channels * 4, base_channels * 8, 3, 2, act=act),
+            Conv(base_channels * 4, base_channels * 8, 3, 2, act=act),
             # CSPLayer(
             #     base_channels * 8,
             #     base_channels * 8,
@@ -58,13 +58,13 @@ class NewDarknet(nn.Module):
             #     depthwise=depthwise,
             #     act=act,
             # ),
-            ES_Block(base_channels * 8, base_channels * 8, k_sizes=[3, 7, 11], SE=True, act=act)
+            ES_Block(base_channels * 8, base_channels * 8, k_sizes=[5], SE=True, act=act)
         )
 
         # dark5
         self.dark5 = nn.Sequential(
-            RepVGGBlock(base_channels * 8, base_channels * 16, 3, 2, act=act),
-            SPPBottleneck(base_channels * 16, base_channels * 16, activation=act),
+            Conv(base_channels * 8, base_channels * 16, 3, 2, act=act),
+            SPPF(base_channels * 16, base_channels * 16, activation=act),
             # CSPLayer(
             #     base_channels * 16,
             #     base_channels * 16,
@@ -73,7 +73,7 @@ class NewDarknet(nn.Module):
             #     shortcut=False,
             #     act=act,
             # ),
-            ES_Block(base_channels * 16, base_channels * 16, k_sizes=[5, 9, 13], SE=True, act=act)
+            ES_Block(base_channels * 16, base_channels * 16, k_sizes=[5], SE=True, act=act)
         )
 
     def forward(self, x):

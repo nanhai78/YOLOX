@@ -91,14 +91,17 @@ def fuse_model(model: nn.Module) -> nn.Module:
     print("Fusing layers...")
     for m in model.modules():
         if type(m) is BaseConv and hasattr(m, "bn"):
+            print("Fuse BaseConv")
             m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
             delattr(m, "bn")  # remove batchnorm
             m.forward = m.fuseforward  # update forward
         elif type(m) is Conv and hasattr(m, "bn"):
+            print("Fuse Conv")
             m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
             delattr(m, "bn")  # remove batchnorm
             m.forward = m.forward_fuse
         elif type(m) is RepVGGBlock:
+            print("Fuse RepVGGBlock")
             if hasattr(m, 'rbr_1x1'):
                 kernel, bias = m.get_equivalent_kernel_bias()  # 获得融合后的权重和偏置
                 rbr_reparam = nn.Conv2d(in_channels=m.rbr_dense.conv.in_channels,  # 重参后的Conv模块
@@ -121,6 +124,7 @@ def fuse_model(model: nn.Module) -> nn.Module:
                 delattr(m, 'se') # 删除se模块
                 m.forward = m.fusevggforward  # update forward
         elif type(m) is Shuffle_Block:
+            print("Fuse Shuffle_Block")
             if hasattr(m, 'branch1'):  # 第一个分支的融合  3*3Conv + BN + 1*1卷积 + BN + Relu =>  3 * 3卷积 + 1*1卷积 + Relu
                 re_branch1 = nn.Sequential(
                     nn.Conv2d(m.branch1[0].in_channels, m.branch1[0].out_channels,

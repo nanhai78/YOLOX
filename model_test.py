@@ -1,20 +1,23 @@
 import torch
 from yolox.models.yolo_head import YOLOXHead
-from yolox.models.light_neck import YOLO_SlimNeck, YOLOPAFPN_Pico
+from exps.example.custom.ES_DBB import YOLOPAFPN2
+from exps.example.custom.RepConv import YOLOPAFPN1
 from yolox.models.yolo_pafpn import YOLOPAFPN
 from yolox.models.yolox import YOLOX
 from thop import clever_format, profile
+from yolox.utils.model_utils import fuse_model
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 width = 0.50
 depth = 0.33
 
-backbone = YOLO_SlimNeck(depth, width)
-head = YOLOXHead(1, width, in_channels=[256, 256, 256])
+backbone = YOLOPAFPN2(depth, width)
+head = YOLOXHead(1, width, in_channels=[256, 512, 1024])
 model = YOLOX(backbone, head)
 model = model.eval()
 model = model.to(device)
+model = fuse_model(model)
 
 input_shape = [768, 416]
 dummy_input = torch.randn(1, 3, input_shape[0], input_shape[1]).to(device)
@@ -23,4 +26,4 @@ flops = flops * 2
 flops, params = clever_format([flops, params], "%.3f")
 print('Total GFLOPS: %s' % (flops))
 print('Total params: %s' % (params))
-print(model)
+# print(model)

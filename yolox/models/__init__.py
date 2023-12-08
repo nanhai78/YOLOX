@@ -9,4 +9,3 @@ from .yolo_fpn import YOLOFPN
 from .yolo_head import YOLOXHead
 from .yolo_pafpn import YOLOPAFPN
 from .yolox import YOLOX
-from .light_neck import YOLOPAFPN_Pico, YOLO_SlimNeck

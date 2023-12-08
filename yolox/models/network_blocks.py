@@ -508,7 +508,7 @@ class RepVGGBlock(nn.Module):
     def _fuse_bn_tensor(self, branch):  # 融合conv和bn，返回新的conv权重和conv偏置
         if branch is None:
             return 0, 0
-        if isinstance(branch, nn.Sequential):
+        if isinstance(branch, nn.Sequential):  # 融合conv + bn
             kernel = branch.conv.weight  # 获取卷积算子的去权重
             running_mean = branch.bn.running_mean  # 获取BN层的样本均值
             running_var = branch.bn.running_var  # 获取BN层的样本方差
@@ -516,7 +516,7 @@ class RepVGGBlock(nn.Module):
             beta = branch.bn.bias  #
             eps = branch.bn.eps
         else:
-            assert isinstance(branch, nn.BatchNorm2d)
+            assert isinstance(branch, nn.BatchNorm2d)  # 将bn转换成3 * 3卷积
             if not hasattr(self, 'id_tensor'):  #
                 input_dim = self.in_channels // self.groups
                 kernel_value = np.zeros((self.in_channels, input_dim, 3, 3),
@@ -548,4 +548,227 @@ class RepVGGBlock(nn.Module):
     def fusevggforward(self, x):
         return self.nonlinearity(self.rbr_dense(x))
 
+
 # -------------------------rep_vgg block end------------------------------------------
+# -------------------------build DBB------------------------------------------
+class BNAndPadLayer(nn.Module):
+    def __init__(self,
+                 pad_pixels,
+                 num_features,
+                 eps=1e-5,
+                 momentum=0.1,
+                 affine=True,
+                 track_running_stats=True):
+        super(BNAndPadLayer, self).__init__()
+        self.bn = nn.BatchNorm2d(num_features, eps, momentum, affine, track_running_stats)
+        self.pad_pixels = pad_pixels
+
+    def forward(self, input):
+        output = self.bn(input)
+        if self.pad_pixels > 0:
+            if self.bn.affine:
+                pad_values = self.bn.bias.detach() - self.bn.running_mean * self.bn.weight.detach() / torch.sqrt(
+                    self.bn.running_var + self.bn.eps)
+            else:
+                pad_values = - self.bn.running_mean / torch.sqrt(self.bn.running_var + self.bn.eps)
+            output = F.pad(output, [self.pad_pixels] * 4)
+            pad_values = pad_values.view(1, -1, 1, 1)
+            output[:, :, 0:self.pad_pixels, :] = pad_values
+            output[:, :, -self.pad_pixels:, :] = pad_values
+            output[:, :, :, 0:self.pad_pixels] = pad_values
+            output[:, :, :, -self.pad_pixels:] = pad_values
+        return output
+
+    @property
+    def weight(self):
+        return self.bn.weight
+
+    @property
+    def bias(self):
+        return self.bn.bias
+
+    @property
+    def running_mean(self):
+        return self.bn.running_mean
+
+    @property
+    def running_var(self):
+        return self.bn.running_var
+
+    @property
+    def eps(self):
+        return self.bn.eps
+
+
+def transI_fusebn(kernel, bn):
+    gamma = bn.weight
+    std = (bn.running_var + bn.eps).sqrt()
+    return kernel * ((gamma / std).reshape(-1, 1, 1, 1)), bn.bias - bn.running_mean * gamma / std
+
+
+def transIII_1x1_kxk(k1, b1, k2, b2, groups):
+    if groups == 1:
+        k = F.conv2d(k2, k1.permute(1, 0, 2, 3))  # k1 (c2,c1,x,x) k2(c3,c2,x,x)
+        b_hat = (k2 * b1.reshape(1, -1, 1, 1)).sum((1, 2, 3))
+    else:
+        k_slices = []
+        b_slices = []
+        k1_T = k1.permute(1, 0, 2, 3)
+        k1_group_width = k1.size(0) // groups
+        k2_group_width = k2.size(0) // groups
+        for g in range(groups):
+            k1_T_slice = k1_T[:, g * k1_group_width:(g + 1) * k1_group_width, :, :]
+            k2_slice = k2[g * k2_group_width:(g + 1) * k2_group_width, :, :, :]
+            k_slices.append(F.conv2d(k2_slice, k1_T_slice))
+            b_slices.append(
+                (k2_slice * b1[g * k1_group_width:(g + 1) * k1_group_width].reshape(1, -1, 1, 1)).sum((1, 2, 3)))
+        k, b_hat = transIV_depthconcat(k_slices, b_slices)
+    return k, b_hat + b2
+
+
+def transIV_depthconcat(kernels, biases):
+    return torch.cat(kernels, dim=0), torch.cat(biases)
+
+
+def transVI_multiscale(kernel):
+    if kernel is None:
+        return 0
+    return torch.nn.functional.pad(kernel, [1, 1, 1, 1])
+
+
+# 将avg转换为conv算子
+def transV_avg(channels, kernel_size, groups):
+    input_dim = channels // groups
+    k = torch.zeros((channels, input_dim, kernel_size, kernel_size))  # (c2, c2, k, k)
+    k[np.arange(channels), np.tile(np.arange(input_dim), groups), :, :] = 1.0 / kernel_size ** 2
+    return k
+
+
+def transII_addbranch(kernels, biases):
+    return sum(kernels), sum(biases)
+
+
+class DiverseBranchBlock(nn.Module):
+    def __init__(self, c1, c2, k_size, s=1, p=1, g=1,
+                 deploy=False, act=None, single_init=False):
+        super(DiverseBranchBlock, self).__init__()
+        self.deploy = deploy
+        self.groups = g
+        self.out_channels = c2
+        self.kernel_size = k_size
+        self.nonlinear = nn.Identity() if act is None else get_activation(act)
+
+        if deploy:  # 重参后的dbb算子
+            self.dbb_reparam = nn.Conv2d(c1, c2, k_size, s, padding=p, groups=g, bias=True)
+
+        # 3*3 + bn分支
+        self.dbb_origin = conv_bn(in_channels=c1, out_channels=c2, kernel_size=k_size,
+                                  stride=s, padding=p, groups=g)
+        # 1*1 + bn分支
+        self.dbb_1x1 = conv_bn(in_channels=c1, out_channels=c2, kernel_size=1, stride=1,
+                               padding=0, groups=g)
+        # 1*1 + bn + pad + avg + bn
+        self.dbb_avg = nn.Sequential()
+        self.dbb_avg.add_module('conv', nn.Conv2d(in_channels=c1, out_channels=c2, kernel_size=1,
+                                                  stride=1, padding=0, groups=g, bias=False))
+        self.dbb_avg.add_module('bn', BNAndPadLayer(pad_pixels=p, num_features=c2))  # 进行BN和pad
+        self.dbb_avg.add_module('avg', nn.AvgPool2d(kernel_size=k_size, stride=s, padding=0))
+        self.dbb_avg.add_module('avgbn', nn.BatchNorm2d(c2))
+
+        # 1*1 + bn + pad + 3*3 + bn
+        self.dbb_1x1_kxk = nn.Sequential()
+        self.dbb_1x1_kxk.add_module('conv1', nn.Conv2d(in_channels=c1, out_channels=c1,
+                                                       kernel_size=1, stride=1, padding=0, groups=g, bias=False))
+        self.dbb_1x1_kxk.add_module('bn1', BNAndPadLayer(pad_pixels=p, num_features=c1,
+                                                         affine=True))
+        self.dbb_1x1_kxk.add_module('conv2',
+                                    nn.Conv2d(in_channels=c1, out_channels=c2,
+                                              kernel_size=k_size, stride=s, padding=0, groups=g,
+                                              bias=False))
+        self.dbb_1x1_kxk.add_module('bn2', nn.BatchNorm2d(c2))
+        if single_init:
+            #   Initialize the bn.weight of dbb_origin as 1 and others as 0. This is not the default setting.
+            self.single_init()
+
+    def init_gamma(self, gamma_value):
+        if hasattr(self, "dbb_origin"):
+            torch.nn.init.constant_(self.dbb_origin.bn.weight, gamma_value)
+        if hasattr(self, "dbb_1x1"):
+            torch.nn.init.constant_(self.dbb_1x1.bn.weight, gamma_value)
+        if hasattr(self, "dbb_avg"):
+            torch.nn.init.constant_(self.dbb_avg.avgbn.weight, gamma_value)
+        if hasattr(self, "dbb_1x1_kxk"):
+            torch.nn.init.constant_(self.dbb_1x1_kxk.bn2.weight, gamma_value)
+
+    def single_init(self):
+        self.init_gamma(0.0)
+        if hasattr(self, "dbb_origin"):
+            torch.nn.init.constant_(self.dbb_origin.bn.weight, 1.0)
+
+    def forward(self, inputs):
+
+        if hasattr(self, 'dbb_reparam'):
+            return self.nonlinear(self.dbb_reparam(inputs))
+
+        out = self.dbb_origin(inputs)
+        if hasattr(self, 'dbb_1x1'):
+            out += self.dbb_1x1(inputs)
+        out += self.dbb_avg(inputs)
+        out += self.dbb_1x1_kxk(inputs)
+        return self.nonlinear(out)
+
+    def get_equivalent_kernel_bias(self):  # 获取重参后的权重 weight + bias
+        # 融合 3 * 3 + bn
+        k_origin, b_origin = transI_fusebn(self.dbb_origin.conv.weight, self.dbb_origin.bn)
+
+        # 融合 1 * 1 + bn
+        if hasattr(self, 'dbb_1x1'):
+            k_1x1, b_1x1 = transI_fusebn(self.dbb_1x1.conv.weight, self.dbb_1x1.bn)
+            k_1x1 = transVI_multiscale(k_1x1)  # 将1*1卷积核转换成3*3卷积核
+        else:
+            k_1x1, b_1x1 = 0, 0
+
+        # 融合dbb_1x1_kxk分支
+        k_1x1_kxk_first, b_1x1_kxk_first = transI_fusebn(self.dbb_1x1_kxk.conv1.weight, self.dbb_1x1_kxk.bn1)
+        k_1x1_kxk_second, b_1x1_kxk_second = transI_fusebn(self.dbb_1x1_kxk.conv2.weight, self.dbb_1x1_kxk.bn2)
+        k_1x1_kxk_merged, b_1x1_kxk_merged = transIII_1x1_kxk(k_1x1_kxk_first, b_1x1_kxk_first, k_1x1_kxk_second,
+                                                              b_1x1_kxk_second, groups=self.groups)
+
+        # 融合dbb_avg分支
+        k_avg = transV_avg(self.out_channels, self.kernel_size, self.groups)  # 得到一个avg的conv算子
+        k_1x1_avg_second, b_1x1_avg_second = transI_fusebn(k_avg.to(self.dbb_avg.avgbn.weight.device),
+                                                           self.dbb_avg.avgbn)
+        if hasattr(self.dbb_avg, 'conv'):
+            k_1x1_avg_first, b_1x1_avg_first = transI_fusebn(self.dbb_avg.conv.weight, self.dbb_avg.bn)
+            k_1x1_avg_merged, b_1x1_avg_merged = transIII_1x1_kxk(k_1x1_avg_first, b_1x1_avg_first, k_1x1_avg_second,
+                                                                  b_1x1_avg_second, groups=self.groups)
+        else:
+            k_1x1_avg_merged, b_1x1_avg_merged = k_1x1_avg_second, b_1x1_avg_second
+
+        return transII_addbranch((k_origin, k_1x1, k_1x1_kxk_merged, k_1x1_avg_merged),
+                                 (b_origin, b_1x1, b_1x1_kxk_merged, b_1x1_avg_merged))
+
+    def fuseforward(self, x):
+        return self.nonlinear(self.dbb_origin(x))
+
+
+class ES_DBB(nn.Module):
+    def __init__(self, channels, k_size, SE=False, act="hard_swish"):
+        super(ES_DBB, self).__init__()
+        branch_channels = channels // 2
+        self.conv1 = BaseConv(branch_channels, branch_channels, 1, 1, act=act)
+        padding = k_size // 2
+        self.dbb = DiverseBranchBlock(branch_channels, branch_channels, k_size, 1, p=padding, act=act)
+
+        self.se = None
+        if SE:
+            self.se = ES_SEModule(branch_channels)
+
+    def forward(self, x):
+        x1, x2 = x.chunk(2, dim=1)
+        x2 = self.conv1(self.dbb(x2))
+        if self.se is not None:
+            x2 = self.se(x2)
+        x = torch.cat((x1, x2), dim=1)
+        x = channel_shuffle(x, 2)
+        return x

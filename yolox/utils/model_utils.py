@@ -86,22 +86,19 @@ def fuse_model(model: nn.Module) -> nn.Module:
     Returns:
         nn.Module: fused model
     """
-    from yolox.models.network_blocks import BaseConv, RepVGGBlock, Shuffle_Block
+    from yolox.models.network_blocks import BaseConv, RepVGGBlock, Shuffle_Block, DiverseBranchBlock
     from yolox.models.slim_neck import Conv
     print("Fusing layers...")
     for m in model.modules():
         if type(m) is BaseConv and hasattr(m, "bn"):
-            print("Fuse BaseConv")
             m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
             delattr(m, "bn")  # remove batchnorm
             m.forward = m.fuseforward  # update forward
         elif type(m) is Conv and hasattr(m, "bn"):
-            print("Fuse Conv")
             m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
             delattr(m, "bn")  # remove batchnorm
             m.forward = m.forward_fuse
         elif type(m) is RepVGGBlock:
-            print("Fuse RepVGGBlock")
             if hasattr(m, 'rbr_1x1'):
                 kernel, bias = m.get_equivalent_kernel_bias()  # 获得融合后的权重和偏置
                 rbr_reparam = nn.Conv2d(in_channels=m.rbr_dense.conv.in_channels,  # 重参后的Conv模块
@@ -112,8 +109,8 @@ def fuse_model(model: nn.Module) -> nn.Module:
                                         groups=m.rbr_dense.conv.groups, bias=True)
                 rbr_reparam.weight.data = kernel  # 给重参的Conv重新赋参
                 rbr_reparam.bias.data = bias
-                # for para in model.parameters():
-                #     para.detach_()
+                for para in model.parameters():
+                    para.detach_()
                 m.rbr_dense = rbr_reparam  #
                 m.__delattr__('rbr_1x1')  # 去掉 1 * 1卷积模块
                 if hasattr(m, 'rbr_identity'):  # 去掉 identity模块
@@ -124,7 +121,6 @@ def fuse_model(model: nn.Module) -> nn.Module:
                 delattr(m, 'se') # 删除se模块
                 m.forward = m.fusevggforward  # update forward
         elif type(m) is Shuffle_Block:
-            print("Fuse Shuffle_Block")
             if hasattr(m, 'branch1'):  # 第一个分支的融合  3*3Conv + BN + 1*1卷积 + BN + Relu =>  3 * 3卷积 + 1*1卷积 + Relu
                 re_branch1 = nn.Sequential(
                     nn.Conv2d(m.branch1[0].in_channels, m.branch1[0].out_channels,
@@ -159,6 +155,23 @@ def fuse_model(model: nn.Module) -> nn.Module:
                 re_branch2[3] = fuse_conv_and_bn(m.branch2[5], m.branch2[6])
                 # pdb.set_trace()
                 m.branch2 = re_branch2
+        elif type(m) is DiverseBranchBlock:
+            kernel, bias = m.get_equivalent_kernel_bias()
+            dbb_reparam = nn.Conv2d(in_channels=m.dbb_origin.conv.in_channels,
+                                     out_channels=m.dbb_origin.conv.out_channels,
+                                     kernel_size=m.dbb_origin.conv.kernel_size, stride=m.dbb_origin.conv.stride,
+                                     padding=m.dbb_origin.conv.padding, dilation=m.dbb_origin.conv.dilation,
+                                     groups=m.dbb_origin.conv.groups, bias=True)
+            dbb_reparam.weight.data = kernel
+            dbb_reparam.bias.data = bias
+            for para in model.parameters():
+                para.detach_()
+            m.dbb_origin = dbb_reparam
+            m.__delattr__('dbb_avg')
+            if hasattr(m, 'dbb_1x1'):
+                m.__delattr__('dbb_1x1')
+            m.__delattr__('dbb_1x1_kxk')
+            m.forward = m.fuseforward
 
     return model
 

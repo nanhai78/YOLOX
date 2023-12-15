@@ -94,6 +94,7 @@ class CSPDarknet1(nn.Module):
         outputs["dark5"] = x
         return {k: v for k, v in outputs.items() if k in self.out_features}
 
+
 class YOLOPAFPN1(nn.Module):
     """
     YOLOv3 model. Darknet 53 is the default backbone of this model.
@@ -198,7 +199,6 @@ class YOLOPAFPN1(nn.Module):
 
         outputs = (pan_out2, pan_out1, pan_out0)
         return outputs
-
 
 
 class Exp(MyExp):

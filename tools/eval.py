@@ -145,7 +145,7 @@ def main(exp, args, num_gpu):
     if args.tsize is not None:
         exp.test_size = (args.tsize, args.tsize)
 
-    model = exp.get_model(True)
+    model = exp.get_model()
     logger.info("Model Summary: {}".format(get_model_info(model, exp.test_size)))
     logger.info("Model Structure:\n{}".format(str(model)))
 

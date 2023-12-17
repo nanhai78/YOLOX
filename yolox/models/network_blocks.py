@@ -24,6 +24,8 @@ def get_activation(name="silu", inplace=True):
         module = nn.LeakyReLU(0.1, inplace=inplace)
     elif name == "hard_swish":
         module = nn.Hardswish(inplace=inplace)
+    elif name == "":
+        module = nn.Identity()
     else:
         raise AttributeError("Unsupported act type: {}".format(name))
     return module

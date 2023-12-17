@@ -7,6 +7,7 @@ paper: https://arxiv.org/ftp/arxiv/papers/2206/2206.02424.pdf
 import torch
 import torch.nn as nn
 import math
+from .network_blocks import get_activation
 
 
 # GSConvE test
@@ -46,11 +47,11 @@ def autopad(k, p=None):  # kernel, padding
 
 class Conv(nn.Module):
     # C_B_M
-    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True):
+    def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act="silu"):
         super().__init__()
         self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
         self.bn = nn.BatchNorm2d(c2)
-        self.act = nn.Mish() if act else (act if isinstance(act, nn.Module) else nn.Identity())
+        self.act = get_activation(act, inplace=True)
 
     def forward(self, x):
         return self.act(self.bn(self.conv(x)))
@@ -61,7 +62,7 @@ class Conv(nn.Module):
 
 class GSConv(nn.Module):
     # GSConv https://github.com/AlanLi1997/slim-neck-by-gsconv
-    def __init__(self, c1, c2, k=1, s=1, g=1, act=True):
+    def __init__(self, c1, c2, k=1, s=1, g=1, act="silu"):
         super().__init__()
         c_ = c2 // 2
         self.cv1 = Conv(c1, c_, k, s, None, g, act)
@@ -92,14 +93,14 @@ class GSConvns(GSConv):
 
 class GSBottleneck(nn.Module):
     # GS Bottleneck https://github.com/AlanLi1997/slim-neck-by-gsconv
-    def __init__(self, c1, c2, k=3, s=1):
+    def __init__(self, c1, c2, k=3, s=1, act="silu"):
         super().__init__()
         c_ = c2 // 2
         # for lighting
         self.conv_lighting = nn.Sequential(
-            GSConv(c1, c_, 1, 1),
-            GSConv(c_, c2, 3, 1, act=False))
-        self.shortcut = Conv(c1, c2, 1, 1, act=False)
+            GSConv(c1, c_, 1, 1, act=act),
+            GSConv(c_, c2, k, 1, act=""))
+        self.shortcut = Conv(c1, c2, 1, 1, act="")
 
     def forward(self, x):
         return self.conv_lighting(x) + self.shortcut(x)
@@ -120,16 +121,13 @@ class GSBottleneckC(GSBottleneck):
 
 class VoVGSCSP(nn.Module):
     # VoVGSCSP module with GSBottleneck
-    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):
+    def __init__(self, c1, c2, e=0.5, act="silu"):
         super().__init__()
         c_ = int(c2 * e)  # hidden channels
-        self.cv1 = Conv(c1, c_, 1, 1)
-        self.cv2 = Conv(c1, c_, 1, 1)
-        # self.gc1 = GSConv(c_, c_, 1, 1)
-        # self.gc2 = GSConv(c_, c_, 1, 1)
-        self.gsb = GSBottleneck(c_, c_, 1, 1)
-        self.res = Conv(c_, c_, 3, 1, act=False)
-        self.cv3 = Conv(2*c_, c2, 1)  #
+        self.cv1 = Conv(c1, c_, 1, 1, act=act)
+        self.cv2 = Conv(c1, c_, 1, 1, act=act)
+        self.gsb = GSBottleneck(c_, c_, 1, 1, act=act)
+        self.cv3 = Conv(2*c_, c2, 1, act=act)  #
 
     def forward(self, x):
 

@@ -86,7 +86,7 @@ class YOLOPAFPN4(nn.Module):
             act="silu",
     ):
         super().__init__()
-        self.backbone = CSPDarknet3(depth, width, depthwise=depthwise, act=act)
+        self.backbone = CSPDarknet4(depth, width, depthwise=depthwise, act=act)
         self.in_features = in_features
         self.in_channels = in_channels
 

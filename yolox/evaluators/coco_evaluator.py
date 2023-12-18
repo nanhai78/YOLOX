@@ -92,6 +92,7 @@ class COCOEvaluator:
         testdev: bool = False,
         per_class_AP: bool = True,
         per_class_AR: bool = True,
+        device: str = 'gpu'
     ):
         """
         Args:
@@ -112,6 +113,7 @@ class COCOEvaluator:
         self.testdev = testdev
         self.per_class_AP = per_class_AP
         self.per_class_AR = per_class_AR
+        self.device = device
 
     def evaluate(
         self, model, distributed=False, half=False, trt_file=None,
@@ -159,7 +161,8 @@ class COCOEvaluator:
             progress_bar(self.dataloader)
         ):
             with torch.no_grad():
-                # imgs = imgs.type(tensor_type)  # no gpu
+                if self.device == 'gpu':
+                    imgs = imgs.type(tensor_type)  # no gpu
 
                 # skip the last iters since batchsize might be not enough for batch inference
                 is_time_record = cur_iter < len(self.dataloader) - 1

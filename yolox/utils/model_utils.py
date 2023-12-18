@@ -95,6 +95,7 @@ def fuse_model(model: nn.Module) -> nn.Module:
             delattr(m, "bn")  # remove batchnorm
             m.forward = m.fuseforward  # update forward
         elif type(m) is Conv and hasattr(m, "bn"):
+            # print("fuse Conv")
             m.conv = fuse_conv_and_bn(m.conv, m.bn)  # update conv
             delattr(m, "bn")  # remove batchnorm
             m.forward = m.forward_fuse
@@ -156,6 +157,7 @@ def fuse_model(model: nn.Module) -> nn.Module:
                 # pdb.set_trace()
                 m.branch2 = re_branch2
         elif type(m) is DiverseBranchBlock:
+            # print("fuse DBB")
             kernel, bias = m.get_equivalent_kernel_bias()
             dbb_reparam = nn.Conv2d(in_channels=m.dbb_origin.conv.in_channels,
                                      out_channels=m.dbb_origin.conv.out_channels,

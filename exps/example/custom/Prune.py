@@ -123,7 +123,7 @@ class YOLOPAFPN4(nn.Module):
         self.bu_conv1 = GSConv(
             int(in_channels[0] * width), int(in_channels[0] * width), 3, 2, act=act
         )
-        self.C3_n4 = GSConv(
+        self.C3_n4 = VoVGSCSP(
             int(2 * in_channels[0] * width),
             int(in_channels[0] * width),
             act=act,

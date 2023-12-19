@@ -3,7 +3,7 @@ from yolox.models.yolo_head import YOLOXHead
 from exps.example.custom.ES_DBB import YOLOPAFPN2
 from exps.example.custom.RepConv import YOLOPAFPN1
 from exps.example.custom.SlimNeck import YOLOPAFPN3
-from exps.example.custom.Prune import YOLOPAFPN4
+# from exps.example.custom.Prune import YOLOPAFPN4
 from yolox.models.yolo_pafpn import YOLOPAFPN
 from yolox.models.yolox import YOLOX
 from thop import clever_format, profile
@@ -11,11 +11,11 @@ from yolox.utils.model_utils import fuse_model
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-width = 0.375
+width = 0.5
 depth = 0.33
 
-backbone = YOLOPAFPN4(depth, width)
-head = YOLOXHead(1, width, in_channels=[256, 256, 256])
+backbone = YOLOPAFPN3(depth, width)
+head = YOLOXHead(1, width, in_channels=[256, 512, 1024])
 model = YOLOX(backbone, head)
 model = model.eval()
 model = model.to(device)

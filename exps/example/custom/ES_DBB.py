@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from yolox.exp import Exp as MyExp
 
-from yolox.models.network_blocks import RepVGGBlock, CSPLayer, Focus, SPPF, BaseConv, ES_DBB
+from yolox.models.network_blocks import RepVGGBlock, CSPLayer, Focus, SPPF, BaseConv, ES_DBB, Shuffle_Block
 
 
 class CSPDarknet2(nn.Module):

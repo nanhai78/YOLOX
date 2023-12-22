@@ -839,7 +839,7 @@ class GSBlock(nn.Module):
         self.conv1 = BaseConv(inp // 2, branch_features, 1, 1, act=act)
         self.dw = BaseConv(branch_features, branch_features // 2, ksize=3, stride=1, groups=branch_features//2)
         self.pw = BaseConv(branch_features // 2, branch_features // 2, 1, 1, act=act)
-        self.branch2 = BaseConv(inp // 2, branch_features, 1, 1, act=act) if inp != oup else nn.Identity()
+        self.branch2 = BaseConv(inp // 2, branch_features, 1, 1, act=act) if inp != oup else nn.Sequential()
 
     @staticmethod
     def depthwise_conv(i, o, kernel_size, stride=1, padding=0, bias=False):

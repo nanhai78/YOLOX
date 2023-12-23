@@ -93,12 +93,26 @@ class YOLOPAFPN3(nn.Module):
         self.lateral_conv0 = GSConv(
             int(in_channels[2] * width), int(in_channels[1] * width), 1, 1, act=act
         )
-        self.C3_p4 = GSBlock(int(2 * in_channels[1] * width), int(in_channels[1] * width),)
+        self.C3_p4 = CSPLayer(
+            int(2 * in_channels[1] * width),
+            int(in_channels[1] * width),
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )  # cat
 
         self.reduce_conv1 = GSConv(
             int(in_channels[1] * width), int(in_channels[0] * width), 1, 1, act=act
         )
-        self.C3_p3 = GSBlock(int(2 * in_channels[0] * width), int(in_channels[0] * width),)
+        self.C3_p3 = CSPLayer(
+            int(2 * in_channels[0] * width),
+            int(in_channels[0] * width),
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )
 
         # bottom-up conv
         self.bu_conv2 = GSConv(
@@ -111,6 +125,7 @@ class YOLOPAFPN3(nn.Module):
             int(in_channels[1] * width), int(in_channels[1] * width), 3, 2, act=act
         )
         self.C3_n4 = GSBlock(int(in_channels[2] * width), int(in_channels[2] * width))
+
     def forward(self, input):
         """
         Args:

@@ -827,23 +827,15 @@ class VoVGSCSP(nn.Module):
 
 
 class GSBlock(nn.Module):
-    """
-    将relu激活函数修改为了silu激活函数
-    """
-
     def __init__(self, inp, oup, act="silu"):
         super(GSBlock, self).__init__()
 
         branch_features = oup // 2  # 输出channel的一半
 
         self.conv1 = BaseConv(inp // 2, branch_features, 1, 1, act=act)
-        self.dw = BaseConv(branch_features, branch_features // 2, ksize=3, stride=1, groups=branch_features//2)
+        self.dw = BaseConv(branch_features, branch_features // 2, ksize=3, stride=1, groups=branch_features // 2)
         self.pw = BaseConv(branch_features // 2, branch_features // 2, 1, 1, act=act)
         self.branch2 = BaseConv(inp // 2, branch_features, 1, 1, act=act) if inp != oup else nn.Sequential()
-
-    @staticmethod
-    def depthwise_conv(i, o, kernel_size, stride=1, padding=0, bias=False):
-        return nn.Conv2d(i, o, kernel_size, stride, padding, bias=bias, groups=i)
 
     def forward(self, x):
         x1, x2 = x.chunk(2, dim=1)
@@ -853,6 +845,21 @@ class GSBlock(nn.Module):
         out = torch.cat((x1, x2), dim=1)
         return channel_shuffle(out, 2)
 
+
+class GSBlock2(nn.Module):
+    def __init__(self, inp, oup, act="silu"):
+        super(GSBlock2, self).__init__()
+        branch_features = oup // 2
+        self.pw = BaseConv(branch_features, branch_features // 2, 1, 1, act=act)
+        self.dw = BaseConv(branch_features // 2, branch_features // 2, ksize=3, stride=1, groups=branch_features // 2)
+        self.conv = BaseConv(branch_features, branch_features, 1, 1, act=act)
+
+    def forward(self, x):
+        x1, x2 = x.chunk(2, dim=1)
+        x2 = self.pw(x2)
+        x2 = self.conv(torch.cat((x2, self.dw(x2)), dim=1))
+        x = torch.cat((x1, x2), dim=1)
+        return channel_shuffle(x, 2)
 
 if __name__ == '__main__':
     x = torch.randn((1, 128, 40, 40))

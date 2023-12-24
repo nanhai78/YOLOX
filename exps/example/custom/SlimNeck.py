@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from yolox.exp import Exp as MyExp
 
-from yolox.models.network_blocks import RepVGGBlock, CSPLayer, Focus, SPPF, BaseConv, ES_DBB, GSConv, GSBlock
+from yolox.models.network_blocks import RepVGGBlock, CSPLayer, Focus, SPPF, BaseConv, ES_DBB, GSConv, GSBlock, GSBlock2
 
 
 class CSPDarknet3(nn.Module):
@@ -101,6 +101,7 @@ class YOLOPAFPN3(nn.Module):
             depthwise=depthwise,
             act=act,
         )  # cat
+        # self.C3_p4 = GSBlock(int(in_channels[2] * width), int(in_channels[1] * width), act=act)
 
         self.reduce_conv1 = GSConv(
             int(in_channels[1] * width), int(in_channels[0] * width), 1, 1, act=act
@@ -113,19 +114,35 @@ class YOLOPAFPN3(nn.Module):
             depthwise=depthwise,
             act=act,
         )
+        # self.C3_p3 = GSBlock(int(in_channels[1] * width), int(in_channels[0] * width), act=act)
 
         # bottom-up conv
         self.bu_conv2 = GSConv(
             int(in_channels[0] * width), int(in_channels[0] * width), 3, 2, act=act
         )
-        self.C3_n3 = GSBlock(int(in_channels[1] * width), int(in_channels[1] * width))
+        self.C3_n3 = GSBlock(int(in_channels[1] * width), int(in_channels[1] * width), act=act)
+        # self.C3_n3 = CSPLayer(
+        #     int(2 * in_channels[0] * width),
+        #     int(in_channels[1] * width),
+        #     round(3 * depth),
+        #     False,
+        #     depthwise=depthwise,
+        #     act=act,
+        # )
 
         # bottom-up conv
         self.bu_conv1 = GSConv(
             int(in_channels[1] * width), int(in_channels[1] * width), 3, 2, act=act
         )
-        self.C3_n4 = GSBlock(int(in_channels[2] * width), int(in_channels[2] * width))
-
+        self.C3_n4 = GSBlock(int(in_channels[2] * width), int(in_channels[2] * width), act=act)
+        # self.C3_n4 = CSPLayer(
+        #     int(2 * in_channels[1] * width),
+        #     int(in_channels[2] * width),
+        #     round(3 * depth),
+        #     False,
+        #     depthwise=depthwise,
+        #     act=act,
+        # )
     def forward(self, input):
         """
         Args:

@@ -335,7 +335,7 @@ class Exp(BaseExp):
 
         return val_loader
 
-    def get_evaluator(self, batch_size, is_distributed, testdev=False, legacy=False):
+    def get_evaluator(self, batch_size, is_distributed, testdev=False, legacy=False, device='gpu'):
         from yolox.evaluators import COCOEvaluator
 
         return COCOEvaluator(
@@ -346,6 +346,7 @@ class Exp(BaseExp):
             nmsthre=self.nmsthre,
             num_classes=self.num_classes,
             testdev=testdev,
+            device=device
         )
 
     def get_trainer(self, args):

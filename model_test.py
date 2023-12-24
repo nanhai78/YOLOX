@@ -3,7 +3,7 @@ from yolox.models.yolo_head import YOLOXHead
 from exps.example.custom.ES_DBB import YOLOPAFPN2
 from exps.example.custom.RepConv import YOLOPAFPN1
 from exps.example.custom.SlimNeck import YOLOPAFPN3
-# from exps.example.custom.Prune import YOLOPAFPN4
+from exps.example.custom.Prune import YOLOPAFPN4
 from yolox.models.yolo_pafpn import YOLOPAFPN
 from yolox.models.yolox import YOLOX
 from thop import clever_format, profile
@@ -11,7 +11,7 @@ from yolox.utils.model_utils import fuse_model
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-width = 0.5
+width = 0.375
 depth = 0.33
 
 backbone = YOLOPAFPN3(depth, width)
@@ -28,4 +28,4 @@ flops = flops * 2
 flops, params = clever_format([flops, params], "%.3f")
 print('Total GFLOPS: %s' % (flops))
 print('Total params: %s' % (params))
-print(model)
+# print(model)

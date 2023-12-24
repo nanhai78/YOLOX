@@ -11,10 +11,10 @@ from yolox.utils.model_utils import fuse_model
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-width = 0.375
+width = 0.5
 depth = 0.33
 
-backbone = YOLOPAFPN3(depth, width)
+backbone = YOLOPAFPN4(depth, width)
 head = YOLOXHead(1, width, in_channels=[256, 512, 1024])
 model = YOLOX(backbone, head)
 model = model.eval()
@@ -28,4 +28,4 @@ flops = flops * 2
 flops, params = clever_format([flops, params], "%.3f")
 print('Total GFLOPS: %s' % (flops))
 print('Total params: %s' % (params))
-# print(model)
+print(model)

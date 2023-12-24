@@ -8,10 +8,10 @@ import torch
 import torch.nn as nn
 from yolox.exp import Exp as MyExp
 
-from yolox.models.network_blocks import RepVGGBlock, CSPLayer, Focus, SPPF, BaseConv, ES_DBB, GSConv, GSBlock, GSBlock2
+from yolox.models.network_blocks import RepVGGBlock, CSPLayer, Focus, SPPF, BaseConv, ES_DBB, Shuffle_Block
 
 
-class CSPDarknet4(nn.Module):
+class CSPDarknet2(nn.Module):
     def __init__(
             self,
             dep_mul,
@@ -85,26 +85,25 @@ class YOLOPAFPN4(nn.Module):
             act="silu",
     ):
         super().__init__()
-        self.backbone = CSPDarknet4(depth, width, depthwise=depthwise, act=act)
+        self.backbone = CSPDarknet2(depth, width, depthwise=depthwise, act=act)
         self.in_features = in_features
         self.in_channels = in_channels
 
         self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
-        self.lateral_conv0 = GSConv(
-            int(in_channels[2] * width), int(in_channels[0] * width), 1, 1, act=act
+        self.lateral_conv0 = BaseConv(
+            int(in_channels[2] * width), int(in_channels[1] * width), 1, 1, act=act
         )
         self.C3_p4 = CSPLayer(
-            int((in_channels[1] + in_channels[0]) * width),
-            int(in_channels[0] * width),
+            int(2 * in_channels[1] * width),
+            int(in_channels[1] * width),
             round(3 * depth),
             False,
             depthwise=depthwise,
             act=act,
         )  # cat
-        # self.C3_p4 = GSBlock(int((in_channels[1] + in_channels[0]) * width), int(in_channels[0] * width), act=act)
 
-        self.reduce_conv1 = GSConv(
-            int(in_channels[0] * width), int(in_channels[0] * width), 1, 1, act=act
+        self.reduce_conv1 = BaseConv(
+            int(in_channels[1] * width), int(in_channels[0] * width), 1, 1, act=act
         )
         self.C3_p3 = CSPLayer(
             int(2 * in_channels[0] * width),
@@ -114,35 +113,33 @@ class YOLOPAFPN4(nn.Module):
             depthwise=depthwise,
             act=act,
         )
-        # self.C3_p3 = GSBlock(int(in_channels[1] * width), int(in_channels[0] * width), act=act)
 
         # bottom-up conv
-        self.bu_conv2 = GSConv(
+        self.bu_conv2 = BaseConv(
             int(in_channels[0] * width), int(in_channels[0] * width), 3, 2, act=act
         )
-        self.C3_n3 = GSBlock(int(in_channels[1] * width), int(in_channels[0] * width), act=act)
-        # self.C3_n3 = CSPLayer(
-        #     int(2 * in_channels[0] * width),
-        #     int(in_channels[1] * width),
-        #     round(3 * depth),
-        #     False,
-        #     depthwise=depthwise,
-        #     act=act,
-        # )
+        self.C3_n3 = CSPLayer(
+            int(2 * in_channels[0] * width),
+            int(in_channels[1] * width),
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )
 
         # bottom-up conv
-        self.bu_conv1 = GSConv(
-            int(in_channels[0] * width), int(in_channels[0] * width), 3, 2, act=act
+        self.bu_conv1 = BaseConv(
+            int(in_channels[1] * width), int(in_channels[1] * width), 3, 2, act=act
         )
-        self.C3_n4 = GSBlock(int(in_channels[1] * width), int(in_channels[0] * width), act=act)
-        # self.C3_n4 = CSPLayer(
-        #     int(2 * in_channels[1] * width),
-        #     int(in_channels[2] * width),
-        #     round(3 * depth),
-        #     False,
-        #     depthwise=depthwise,
-        #     act=act,
-        # )
+        self.C3_n4 = CSPLayer(
+            int(2 * in_channels[1] * width),
+            int(in_channels[2] * width),
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )
+
     def forward(self, input):
         """
         Args:
@@ -183,7 +180,7 @@ class Exp(MyExp):
     def __init__(self):
         super(Exp, self).__init__()
         self.depth = 0.33
-        self.width = 0.5
+        self.width = 0.375
         self.input_size = (768, 416)
         self.mosaic_scale = (0.5, 1.5)
         self.test_size = (768, 416)
@@ -209,7 +206,7 @@ class Exp(MyExp):
 
         if getattr(self, "model", None) is None:
             # in_channels = [256, 512, 1024]  # in channels for head
-            in_channels = [256, 256, 256]
+            in_channels = [256, 512, 1024]
             backbone = YOLOPAFPN4(self.depth, self.width)
             head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels, act=self.act)
             self.model = YOLOX(backbone, head)

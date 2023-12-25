@@ -145,7 +145,7 @@ class COCOEvaluator:
 
         inference_time = 0
         nms_time = 0
-        n_samples = max(len(self.dataloader) - 1, 1)
+        n_samples = max(len(self.dataloader) - 1, 1) # 多少个iter?
 
         if trt_file is not None:
             from torch2trt import TRTModule
@@ -175,15 +175,20 @@ class COCOEvaluator:
 
                 if is_time_record:
                     infer_end = time_synchronized()
-                    inference_time += infer_end - start
+                    inference_time += infer_end - start  # 推理时间
 
                 outputs = postprocess(
                     outputs, self.num_classes, self.confthre, self.nmsthre
                 )
                 if is_time_record:
                     nms_end = time_synchronized()
-                    nms_time += nms_end - infer_end
-
+                    nms_time += nms_end - infer_end  # nms后处理时间
+            if cur_iter == 3000 and self.device == 'cpu':
+                a_infer_time = 1000 * inference_time / (3000 * self.dataloader.batch_size)
+                a_nms_time = 1000 * nms_time / (3000 * self.dataloader.batch_size)
+                print("Average forward time: {:.2f} ms".format(a_infer_time))
+                print("Average nms time: {:.2f} ms".format(a_nms_time))
+                print("Average inference time: {:.2f} ms".format(a_infer_time + a_nms_time))
             data_list_elem, image_wise_data = self.convert_to_coco_format(
                 outputs, info_imgs, ids, return_outputs=True)
             data_list.extend(data_list_elem)

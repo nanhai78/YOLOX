@@ -11,7 +11,7 @@ from yolox.exp import Exp as MyExp
 from yolox.models.network_blocks import RepVGGBlock, CSPLayer, Focus, SPPF, BaseConv, ES_DBB, GSConv
 
 
-class CSPDarknet2(nn.Module):
+class CSPDarknet5(nn.Module):
     def __init__(
             self,
             dep_mul,
@@ -70,7 +70,7 @@ class CSPDarknet2(nn.Module):
         return {k: v for k, v in outputs.items() if k in self.out_features}
 
 
-class YOLOPAFPN2(nn.Module):
+class YOLOPAFPN5(nn.Module):
     """
     YOLOv3 model. Darknet 53 is the default backbone of this model.
     """
@@ -85,7 +85,7 @@ class YOLOPAFPN2(nn.Module):
             act="silu",
     ):
         super().__init__()
-        self.backbone = CSPDarknet2(depth, width, depthwise=depthwise, act=act)
+        self.backbone = CSPDarknet5(depth, width, depthwise=depthwise, act=act)
         self.in_features = in_features
         self.in_channels = in_channels
 
@@ -102,7 +102,7 @@ class YOLOPAFPN2(nn.Module):
             act=act,
         )  # cat
 
-        self.reduce_conv1 = BaseConv(
+        self.reduce_conv1 = GSConv(
             int(in_channels[1] * width), int(in_channels[0] * width), 1, 1, act=act
         )
         self.C3_p3 = CSPLayer(
@@ -115,7 +115,7 @@ class YOLOPAFPN2(nn.Module):
         )
 
         # bottom-up conv
-        self.bu_conv2 = BaseConv(
+        self.bu_conv2 = GSConv(
             int(in_channels[0] * width), int(in_channels[0] * width), 3, 2, act=act
         )
         self.C3_n3 = CSPLayer(
@@ -128,7 +128,7 @@ class YOLOPAFPN2(nn.Module):
         )
 
         # bottom-up conv
-        self.bu_conv1 = BaseConv(
+        self.bu_conv1 = GSConv(
             int(in_channels[1] * width), int(in_channels[1] * width), 3, 2, act=act
         )
         self.C3_n4 = CSPLayer(
@@ -186,7 +186,7 @@ class Exp(MyExp):
         self.test_size = (768, 416)
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
         self.enable_mixup = False
-        self.flip_prob = 0
+        self.flip_prob = 0.5
 
         # Define yourself dataset path
         self.data_dir = "datasets/coco"
@@ -207,7 +207,7 @@ class Exp(MyExp):
         if getattr(self, "model", None) is None:
             # in_channels = [256, 512, 1024]  # in channels for head
             in_channels = [256, 512, 1024]
-            backbone = YOLOPAFPN2(self.depth, self.width)
+            backbone = YOLOPAFPN5(self.depth, self.width)
             head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels, act=self.act)
             self.model = YOLOX(backbone, head)
 

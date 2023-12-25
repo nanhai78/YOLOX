@@ -162,7 +162,7 @@ class COCOEvaluator:
         ):
             with torch.no_grad():
                 if self.device == 'gpu':
-                    imgs = imgs.type(tensor_type)  # no gpu
+                    imgs = imgs.type(tensor_type)
 
                 # skip the last iters since batchsize might be not enough for batch inference
                 is_time_record = cur_iter < len(self.dataloader) - 1

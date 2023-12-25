@@ -109,6 +109,12 @@ def make_parser():
         default=None,
         nargs=argparse.REMAINDER,
     )
+    parser.add_argument(
+        "--device",
+        default="cpu",
+        type=str,
+        help="device to run our model, can either be cpu or gpu",
+    )
     return parser
 
 
@@ -149,12 +155,13 @@ def main(exp, args, num_gpu):
     logger.info("Model Summary: {}".format(get_model_info(model, exp.test_size)))
     logger.info("Model Structure:\n{}".format(str(model)))
 
-    evaluator = exp.get_evaluator(args.batch_size, is_distributed, args.test, args.legacy)
+    evaluator = exp.get_evaluator(args.batch_size, is_distributed, args.test, args.legacy, args.device)
     evaluator.per_class_AP = True
     evaluator.per_class_AR = True
 
     torch.cuda.set_device(rank)
-    model.cuda(rank)
+    if args.device == 'gpu':
+        model.cuda(rank)
     model.eval()
 
     if not args.speed and not args.trt:
@@ -191,7 +198,7 @@ def main(exp, args, num_gpu):
 
     # start evaluate
     *_, summary = evaluator.evaluate(
-        model, is_distributed, args.fp16, trt_file, decoder, exp.test_size, 'gpu'
+        model, is_distributed, args.fp16, trt_file, decoder, exp.test_size
     )
     logger.info("\n" + summary)
 

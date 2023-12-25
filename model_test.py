@@ -14,12 +14,12 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 width = 0.5
 depth = 0.33
 
-backbone = YOLOPAFPN4(depth, width)
+backbone = YOLOPAFPN1(depth, width)
 head = YOLOXHead(1, width, in_channels=[256, 512, 1024])
 model = YOLOX(backbone, head)
 model = model.eval()
 model = model.to(device)
-model = fuse_model(model)
+# model = fuse_model(model)
 
 input_shape = [768, 416]
 dummy_input = torch.randn(1, 3, input_shape[0], input_shape[1]).to(device)
@@ -28,4 +28,4 @@ flops = flops * 2
 flops, params = clever_format([flops, params], "%.3f")
 print('Total GFLOPS: %s' % (flops))
 print('Total params: %s' % (params))
-print(model)
+# print(model)

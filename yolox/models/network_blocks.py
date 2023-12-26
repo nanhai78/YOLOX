@@ -401,6 +401,75 @@ class ES_SEModule(nn.Module):
         return out
 
 
+class ES_Bottleneck(nn.Module):
+    def __init__(self, inp, oup, stride):
+        super(ES_Bottleneck, self).__init__()
+
+        if not (1 <= stride <= 3):
+            raise ValueError('illegal stride value')
+        self.stride = stride
+
+        branch_features = oup // 2
+        # assert (self.stride != 1) or (inp == branch_features << 1)
+
+        if self.stride > 1:
+            self.branch1 = nn.Sequential(
+                self.depthwise_conv(inp, inp, kernel_size=3, stride=self.stride, padding=1),
+                nn.BatchNorm2d(inp),
+                nn.Conv2d(inp, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+                nn.BatchNorm2d(branch_features),
+                nn.Hardswish(inplace=True),
+            )
+
+        self.branch2 = nn.Sequential(
+            nn.Conv2d(inp if (self.stride > 1) else branch_features,
+                      branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(branch_features),
+            nn.Hardswish(inplace=True),
+            self.depthwise_conv(branch_features, branch_features, kernel_size=3, stride=self.stride, padding=1),
+            nn.BatchNorm2d(branch_features),
+            ES_SEModule(branch_features),
+            nn.Conv2d(branch_features, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(branch_features),
+            nn.Hardswish(inplace=True),
+        )
+
+        self.branch3 = nn.Sequential(
+            GhostConv(branch_features, branch_features, 3, 1),
+            ES_SEModule(branch_features),
+            nn.Conv2d(branch_features, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(branch_features),
+            nn.Hardswish(inplace=True),
+        )
+
+        self.branch4 = nn.Sequential(
+            self.depthwise_conv(oup, oup, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(oup),
+            nn.Conv2d(oup, oup, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(oup),
+            nn.Hardswish(inplace=True),
+        )
+
+    @staticmethod
+    def depthwise_conv(i, o, kernel_size=3, stride=1, padding=0, bias=False):
+        return nn.Conv2d(i, o, kernel_size, stride, padding, bias=bias, groups=i)
+
+    @staticmethod
+    def conv1x1(i, o, kernel_size=1, stride=1, padding=0, bias=False):
+        return nn.Conv2d(i, o, kernel_size, stride, padding, bias=bias)
+
+    def forward(self, x):
+        if self.stride == 1:
+            x1, x2 = x.chunk(2, dim=1)
+            x3 = torch.cat((x1, self.branch3(x2)), dim=1)
+            out = channel_shuffle(x3, 2)
+        elif self.stride == 2:
+            x1 = torch.cat((self.branch1(x), self.branch2(x)), dim=1)
+            out = self.branch4(x1)
+
+        return out
+
+
 class ES_Block(nn.Module):
     def __init__(self, c1, c2, k_sizes=(5, 9, 13), SE=False, act="hard_swish"):
         super(ES_Block, self).__init__()
@@ -829,37 +898,20 @@ class VoVGSCSP(nn.Module):
 class GSBlock(nn.Module):
     def __init__(self, inp, oup, act="silu"):
         super(GSBlock, self).__init__()
-
-        branch_features = oup // 2  # 输出channel的一半
-
-        self.conv1 = BaseConv(inp // 2, branch_features, 1, 1, act=act)
-        self.dw = BaseConv(branch_features, branch_features // 2, ksize=3, stride=1, groups=branch_features // 2)
-        self.pw = BaseConv(branch_features // 2, branch_features // 2, 1, 1, act=act)
-        self.branch2 = BaseConv(inp // 2, branch_features, 1, 1, act=act) if inp != oup else nn.Sequential()
-
-    def forward(self, x):
-        x1, x2 = x.chunk(2, dim=1)
-        x2 = self.dw(self.conv1(x2))
-        x2 = torch.cat((x2, self.pw(x2)), dim=1)  # b, branch_channels,h,w
-        x1 = self.branch2(x1)
-        out = torch.cat((x1, x2), dim=1)
-        return channel_shuffle(out, 2)
-
-
-class GSBlock2(nn.Module):
-    def __init__(self, inp, oup, act="silu"):
-        super(GSBlock2, self).__init__()
         branch_features = oup // 2
         self.pw = BaseConv(branch_features, branch_features // 2, 1, 1, act=act)
         self.dw = BaseConv(branch_features // 2, branch_features // 2, ksize=3, stride=1, groups=branch_features // 2)
+        self.se = ES_SEModule(branch_features)
         self.conv = BaseConv(branch_features, branch_features, 1, 1, act=act)
 
     def forward(self, x):
         x1, x2 = x.chunk(2, dim=1)
         x2 = self.pw(x2)
-        x2 = self.conv(torch.cat((x2, self.dw(x2)), dim=1))
+        x2 = torch.cat([x2, self.dw(x2)], dim=1)
+        x2 = self.conv(self.se(x2))
         x = torch.cat((x1, x2), dim=1)
         return channel_shuffle(x, 2)
+
 
 if __name__ == '__main__':
     x = torch.randn((1, 128, 40, 40))

@@ -8,10 +8,10 @@ import torch
 import torch.nn as nn
 from yolox.exp import Exp as MyExp
 
-from yolox.models.network_blocks import RepVGGBlock, CSPLayer, Focus, SPPF, BaseConv, ES_DBB, Shuffle_Block
+from yolox.models.network_blocks import RepVGGBlock, CSPLayer, Focus, SPPF, BaseConv, ES_DBB, GSConv, GSBlock, ES_Bottleneck
 
 
-class CSPDarknet2(nn.Module):
+class CSPDarknet3(nn.Module):
     def __init__(
             self,
             dep_mul,
@@ -85,12 +85,12 @@ class YOLOPAFPN4(nn.Module):
             act="silu",
     ):
         super().__init__()
-        self.backbone = CSPDarknet2(depth, width, depthwise=depthwise, act=act)
+        self.backbone = CSPDarknet3(depth, width, depthwise=depthwise, act=act)
         self.in_features = in_features
         self.in_channels = in_channels
 
         self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
-        self.lateral_conv0 = BaseConv(
+        self.lateral_conv0 = GSConv(
             int(in_channels[2] * width), int(in_channels[1] * width), 1, 1, act=act
         )
         self.C3_p4 = CSPLayer(
@@ -102,7 +102,7 @@ class YOLOPAFPN4(nn.Module):
             act=act,
         )  # cat
 
-        self.reduce_conv1 = BaseConv(
+        self.reduce_conv1 = GSConv(
             int(in_channels[1] * width), int(in_channels[0] * width), 1, 1, act=act
         )
         self.C3_p3 = CSPLayer(
@@ -115,31 +115,32 @@ class YOLOPAFPN4(nn.Module):
         )
 
         # bottom-up conv
-        self.bu_conv2 = BaseConv(
+        self.bu_conv2 = GSConv(
             int(in_channels[0] * width), int(in_channels[0] * width), 3, 2, act=act
         )
-        self.C3_n3 = CSPLayer(
-            int(2 * in_channels[0] * width),
-            int(in_channels[1] * width),
-            round(3 * depth),
-            False,
-            depthwise=depthwise,
-            act=act,
-        )
+        self.C3_n3 = GSBlock(int(in_channels[1] * width), int(in_channels[1] * width), act=act)
+        # self.C3_n3 = CSPLayer(
+        #     int(2 * in_channels[0] * width),
+        #     int(in_channels[1] * width),
+        #     round(3 * depth),
+        #     False,
+        #     depthwise=depthwise,
+        #     act=act,
+        # )
 
         # bottom-up conv
-        self.bu_conv1 = BaseConv(
+        self.bu_conv1 = GSConv(
             int(in_channels[1] * width), int(in_channels[1] * width), 3, 2, act=act
         )
-        self.C3_n4 = CSPLayer(
-            int(2 * in_channels[1] * width),
-            int(in_channels[2] * width),
-            round(3 * depth),
-            False,
-            depthwise=depthwise,
-            act=act,
-        )
-
+        self.C3_n4 = GSBlock(int(in_channels[2] * width), int(in_channels[2] * width), act=act)
+        # self.C3_n4 = CSPLayer(
+        #     int(2 * in_channels[1] * width),
+        #     int(in_channels[2] * width),
+        #     round(3 * depth),
+        #     False,
+        #     depthwise=depthwise,
+        #     act=act,
+        # )
     def forward(self, input):
         """
         Args:
@@ -180,13 +181,13 @@ class Exp(MyExp):
     def __init__(self):
         super(Exp, self).__init__()
         self.depth = 0.33
-        self.width = 0.375
+        self.width = 0.5
         self.input_size = (768, 416)
         self.mosaic_scale = (0.5, 1.5)
         self.test_size = (768, 416)
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
         self.enable_mixup = False
-        self.flip_prob = 0
+        self.flip_prob = 0.5
 
         # Define yourself dataset path
         self.data_dir = "datasets/coco"

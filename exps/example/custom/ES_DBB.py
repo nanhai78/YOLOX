@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from yolox.exp import Exp as MyExp
 
-from yolox.models.network_blocks import RepVGGBlock, CSPLayer, Focus, SPPF, BaseConv, ES_DBB, GSConv
+from yolox.models.network_blocks import RepVGGBlock, CSPLayer, Focus, SPPF, BaseConv, ES_DBB
 
 
 class CSPDarknet2(nn.Module):
@@ -90,7 +90,7 @@ class YOLOPAFPN2(nn.Module):
         self.in_channels = in_channels
 
         self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
-        self.lateral_conv0 = GSConv(
+        self.lateral_conv0 = BaseConv(
             int(in_channels[2] * width), int(in_channels[1] * width), 1, 1, act=act
         )
         self.C3_p4 = CSPLayer(

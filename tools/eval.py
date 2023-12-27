@@ -197,9 +197,16 @@ def main(exp, args, num_gpu):
         decoder = None
 
     # start evaluate
-    *_, summary = evaluator.evaluate(
-        model, is_distributed, args.fp16, trt_file, decoder, exp.test_size
-    )
+    if args.device == 'gpu':
+        *_, summary = evaluator.evaluate_gpu(
+            model, is_distributed, args.fp16, trt_file, decoder, exp.test_size
+        )
+    elif args.device == 'cpu':
+        *_, summary = evaluator.evaluate_cpu(
+            model, is_distributed, args.fp16, trt_file, decoder, exp.test_size
+        )
+    else:
+        raise AttributeError("Unsupported device: {}".format(args.device))
     logger.info("\n" + summary)
 
 

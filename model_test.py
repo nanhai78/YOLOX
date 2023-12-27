@@ -20,7 +20,7 @@ head = YOLOXHead(1, width, in_channels=[256, 512, 1024])
 model = YOLOX(backbone, head)
 model = model.eval()
 model = model.to(device)
-# model = fuse_model(model)
+model = fuse_model(model)
 
 input_shape = [768, 416]
 dummy_input = torch.randn(1, 3, input_shape[0], input_shape[1]).to(device)

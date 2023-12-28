@@ -12,15 +12,15 @@ from yolox.utils.model_utils import fuse_model
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-width = 0.5
+width = 0.375
 depth = 0.33
 
-backbone = YOLOPAFPN3(depth, width)
+backbone = YOLOPAFPN4(depth, width)
 head = YOLOXHead(1, width, in_channels=[256, 512, 1024])
 model = YOLOX(backbone, head)
 model = model.eval()
 model = model.to(device)
-model = fuse_model(model)
+# model = fuse_model(model)
 
 input_shape = [768, 416]
 dummy_input = torch.randn(1, 3, input_shape[0], input_shape[1]).to(device)

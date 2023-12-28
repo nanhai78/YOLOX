@@ -70,7 +70,7 @@ class CSPDarknet2(nn.Module):
         return {k: v for k, v in outputs.items() if k in self.out_features}
 
 
-class YOLOPAFPN2(nn.Module):
+class YOLOPAFPN4(nn.Module):
     """
     YOLOv3 model. Darknet 53 is the default backbone of this model.
     """
@@ -207,7 +207,7 @@ class Exp(MyExp):
         if getattr(self, "model", None) is None:
             # in_channels = [256, 512, 1024]  # in channels for head
             in_channels = [256, 512, 1024]
-            backbone = YOLOPAFPN2(self.depth, self.width)
+            backbone = YOLOPAFPN4(self.depth, self.width)
             head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels, act=self.act)
             self.model = YOLOX(backbone, head)
 

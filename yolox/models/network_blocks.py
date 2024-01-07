@@ -824,7 +824,7 @@ class DiverseBranchBlock(nn.Module):
 
 
 class ES_DBB(nn.Module):
-    def __init__(self, channels, k_size, SE=False, act="hard_swish"):
+    def __init__(self, channels, k_size=3, SE=False, act="hard_swish"):
         super(ES_DBB, self).__init__()
         branch_channels = channels // 2
         self.conv1 = BaseConv(branch_channels, branch_channels, 1, 1, act=act)

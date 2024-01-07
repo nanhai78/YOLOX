@@ -112,7 +112,7 @@ class VOCDetection(CacheDataset):
         cache=False,
         cache_type="ram",
     ):
-        self.root = data_dir
+        self.root = data_dir  # ./datasets
         self.image_set = image_sets
         self.img_size = img_size
         self.preproc = preproc

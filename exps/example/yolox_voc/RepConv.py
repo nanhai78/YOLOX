@@ -1,17 +1,14 @@
-#!/usr/bin/env python3
-# -*- coding:utf-8 -*-
-# python -m yolox.tools.train -f exps/example/custom/picodet_s.py -d 1 -b 40
-# Copyright (c) Megvii, Inc. and its affiliates.
-
+# encoding: utf-8
 import os
 import torch
 import torch.nn as nn
 from yolox.exp import Exp as MyExp
+from yolox.data import get_yolox_datadir
 
-from yolox.models.network_blocks import RepVGGBlock, CSPLayer, Focus, SPPF, BaseConv, ES_DBB, GSConv, GSBlock, ES_DBB
+from yolox.models.network_blocks import RepVGGBlock, CSPLayer, Focus, SPPF, BaseConv
 
 
-class CSPDarknet3(nn.Module):
+class CSPDarknet1(nn.Module):
     def __init__(
             self,
             dep_mul,
@@ -33,25 +30,50 @@ class CSPDarknet3(nn.Module):
         # dark2
         self.dark2 = nn.Sequential(
             RepVGGBlock(base_channels, base_channels * 2, 3, 2, act=act),
-            ES_DBB(base_channels * 2, 3, act=act)
+            CSPLayer(
+                base_channels * 2,
+                base_channels * 2,
+                n=base_depth,
+                depthwise=depthwise,
+                act=act,
+            ),
         )
 
         # dark3
         self.dark3 = nn.Sequential(
             RepVGGBlock(base_channels * 2, base_channels * 4, 3, 2, act=act),
-            ES_DBB(base_channels * 4, 3, act=act)
+            CSPLayer(
+                base_channels * 4,
+                base_channels * 4,
+                n=base_depth * 3,
+                depthwise=depthwise,
+                act=act,
+            ),
         )
 
         # dark4
         self.dark4 = nn.Sequential(
             RepVGGBlock(base_channels * 4, base_channels * 8, 3, 2, act=act),
-            ES_DBB(base_channels * 8, 3, act=act)
+            CSPLayer(
+                base_channels * 8,
+                base_channels * 8,
+                n=base_depth * 3,
+                depthwise=depthwise,
+                act=act,
+            ),
         )
 
         # dark5
         self.dark5 = nn.Sequential(
             RepVGGBlock(base_channels * 8, base_channels * 16, 3, 2, act=act),
-            ES_DBB(base_channels * 16, 3, act=act),
+            CSPLayer(
+                base_channels * 16,
+                base_channels * 16,
+                n=base_depth,
+                shortcut=False,
+                depthwise=depthwise,
+                act=act,
+            ),
             SPPF(base_channels * 16, base_channels * 16, activation=act),
         )
 
@@ -70,7 +92,7 @@ class CSPDarknet3(nn.Module):
         return {k: v for k, v in outputs.items() if k in self.out_features}
 
 
-class YOLOPAFPN3(nn.Module):
+class YOLOPAFPN1(nn.Module):
     """
     YOLOv3 model. Darknet 53 is the default backbone of this model.
     """
@@ -85,12 +107,12 @@ class YOLOPAFPN3(nn.Module):
             act="silu",
     ):
         super().__init__()
-        self.backbone = CSPDarknet3(depth, width, depthwise=depthwise, act=act)
+        self.backbone = CSPDarknet1(depth, width, depthwise=depthwise, act=act)
         self.in_features = in_features
         self.in_channels = in_channels
 
         self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
-        self.lateral_conv0 = GSConv(
+        self.lateral_conv0 = BaseConv(
             int(in_channels[2] * width), int(in_channels[1] * width), 1, 1, act=act
         )
         self.C3_p4 = CSPLayer(
@@ -102,7 +124,7 @@ class YOLOPAFPN3(nn.Module):
             act=act,
         )  # cat
 
-        self.reduce_conv1 = GSConv(
+        self.reduce_conv1 = BaseConv(
             int(in_channels[1] * width), int(in_channels[0] * width), 1, 1, act=act
         )
         self.C3_p3 = CSPLayer(
@@ -115,32 +137,31 @@ class YOLOPAFPN3(nn.Module):
         )
 
         # bottom-up conv
-        self.bu_conv2 = GSConv(
+        self.bu_conv2 = BaseConv(
             int(in_channels[0] * width), int(in_channels[0] * width), 3, 2, act=act
         )
-        self.C3_n3 = GSBlock(int(in_channels[1] * width),int(in_channels[1] * width), act=act)
-        # self.C3_n3 = CSPLayer(
-        #     int(2 * in_channels[0] * width),
-        #     int(in_channels[1] * width),
-        #     round(3 * depth),
-        #     False,
-        #     depthwise=depthwise,
-        #     act=act,
-        # )
+        self.C3_n3 = CSPLayer(
+            int(2 * in_channels[0] * width),
+            int(in_channels[1] * width),
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )
 
         # bottom-up conv
-        self.bu_conv1 = GSConv(
+        self.bu_conv1 = BaseConv(
             int(in_channels[1] * width), int(in_channels[1] * width), 3, 2, act=act
         )
-        self.C3_n4 = GSBlock(int(in_channels[2] * width),  int(in_channels[2] * width),act=act)
-        # self.C3_n4 = CSPLayer(
-        #     int(2 * in_channels[1] * width),
-        #     int(in_channels[2] * width),
-        #     round(3 * depth),
-        #     False,
-        #     depthwise=depthwise,
-        #     act=act,
-        # )
+        self.C3_n4 = CSPLayer(
+            int(2 * in_channels[1] * width),
+            int(in_channels[2] * width),
+            round(3 * depth),
+            False,
+            depthwise=depthwise,
+            act=act,
+        )
+
     def forward(self, input):
         """
         Args:
@@ -180,21 +201,19 @@ class YOLOPAFPN3(nn.Module):
 class Exp(MyExp):
     def __init__(self):
         super(Exp, self).__init__()
-        self.depth = 0.33
-        self.width = 0.5
-        self.input_size = (768, 416)
-        self.mosaic_scale = (0.5, 1.5)
-        self.test_size = (768, 416)
-        self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
-        self.enable_mixup = False
-        self.flip_prob = 0
-
-        # Define yourself dataset path
-        self.data_dir = "datasets/coco"
-        self.train_ann = "instances_train2017.json"
-        self.val_ann = "instances_val2017.json"
-
         self.num_classes = 1
+        self.depth = 0.33
+        self.width = 0.50
+        self.warmup_epochs = 1
+
+        # ---------- transform config ------------ #
+        self.mosaic_prob = 1.0
+        self.mixup_prob = 0
+        self.hsv_prob = 1.0
+        self.flip_prob = 0.5
+
+        self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
+
 
     def get_model(self):
         from yolox.models import YOLOX, YOLOXHead
@@ -208,7 +227,7 @@ class Exp(MyExp):
         if getattr(self, "model", None) is None:
             # in_channels = [256, 512, 1024]  # in channels for head
             in_channels = [256, 512, 1024]
-            backbone = YOLOPAFPN3(self.depth, self.width)
+            backbone = YOLOPAFPN1(self.depth, self.width)
             head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels, act=self.act)
             self.model = YOLOX(backbone, head)
 
@@ -216,3 +235,41 @@ class Exp(MyExp):
         self.model.head.initialize_biases(1e-2)
         self.model.train()
         return self.model
+
+    def get_dataset(self, cache: bool, cache_type: str = "ram"):
+        from yolox.data import VOCDetection, TrainTransform
+
+        return VOCDetection(
+            data_dir=get_yolox_datadir(),
+            image_sets=[('2007', 'trainval')],
+            img_size=self.input_size,
+            preproc=TrainTransform(
+                max_labels=50,
+                flip_prob=self.flip_prob,
+                hsv_prob=self.hsv_prob),
+            cache=cache,
+            cache_type=cache_type,
+        )
+
+    def get_eval_dataset(self, **kwargs):
+        from yolox.data import VOCDetection, ValTransform
+        legacy = kwargs.get("legacy", False)
+
+        return VOCDetection(
+            data_dir=get_yolox_datadir(),
+            image_sets=[('2007', 'test')],
+            img_size=self.test_size,
+            preproc=ValTransform(legacy=legacy),
+        )
+
+    def get_evaluator(self, batch_size, is_distributed, testdev=False, legacy=False):
+        from yolox.evaluators import VOCEvaluator
+
+        return VOCEvaluator(
+            dataloader=self.get_eval_loader(batch_size, is_distributed,
+                                            testdev=testdev, legacy=legacy),
+            img_size=self.test_size,
+            confthre=self.test_conf,
+            nmsthre=self.nmsthre,
+            num_classes=self.num_classes,
+        )

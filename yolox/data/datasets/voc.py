@@ -119,7 +119,7 @@ class VOCDetection(CacheDataset):
         self.target_transform = target_transform
         self.name = dataset_name
         self._annopath = os.path.join("%s", "Annotations", "%s.xml")
-        self._imgpath = os.path.join("%s", "JPEGImages", "%s.jpg")
+        self._imgpath = os.path.join("%s", "images", "%s.jpg")
         self._classes = VOC_CLASSES
         self.cats = [
             {"id": idx, "name": val} for idx, val in enumerate(VOC_CLASSES)

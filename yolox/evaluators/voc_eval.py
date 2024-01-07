@@ -35,6 +35,29 @@ def parse_rec(filename):
 
     return objects
 
+def parse_rec2(filename):
+    """Parse a PASCAL VOC xml file"""
+    tree = ET.parse(filename)
+    objects = []
+    for root in tree.findall("object"):
+        child = root.find("others")
+        for obj in child.findall("others"):
+            obj_struct = {}
+            obj_struct["name"] = 'others'
+            obj_struct["pose"] = 0
+            obj_struct["truncated"] = 0
+            obj_struct["difficult"] = 0
+            bbox = obj.find("bndbox")
+            obj_struct["bbox"] = [
+                int(bbox.find("xmin").text),
+                int(bbox.find("ymin").text),
+                int(bbox.find("xmax").text),
+                int(bbox.find("ymax").text),
+            ]
+            objects.append(obj_struct)
+
+    return objects
+
 
 def voc_ap(rec, prec, use_07_metric=False):
     """
@@ -92,7 +115,7 @@ def voc_eval(
         # load annots
         recs = {}
         for i, imagename in enumerate(imagenames):
-            recs[imagename] = parse_rec(annopath.format(imagename))
+            recs[imagename] = parse_rec2(annopath.format(imagename))
             if i % 100 == 0:
                 print(f"Reading annotation for {i + 1}/{len(imagenames)}")
         # save

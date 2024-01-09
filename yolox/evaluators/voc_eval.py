@@ -35,6 +35,7 @@ def parse_rec(filename):
 
     return objects
 
+
 def parse_rec2(filename):
     """Parse a PASCAL VOC xml file"""
     tree = ET.parse(filename)
@@ -58,6 +59,27 @@ def parse_rec2(filename):
 
     return objects
 
+
+def parse_rec3(filename):
+    """Parse a PASCAL VOC xml file"""
+    tree = ET.parse(filename)
+    objects = []
+    for obj in tree.findall("object"):
+        obj_struct = {}
+        obj_struct["name"] = 'others'
+        obj_struct["pose"] = obj.find("pose").text
+        obj_struct["truncated"] = int(obj.find("truncated").text)
+        obj_struct["difficult"] = int(obj.find("difficult").text)
+        bbox = obj.find("bndbox")
+        obj_struct["bbox"] = [
+            int(bbox.find("xmin").text),
+            int(bbox.find("ymin").text),
+            int(bbox.find("xmax").text),
+            int(bbox.find("ymax").text),
+        ]
+        objects.append(obj_struct)
+
+    return objects
 
 def voc_ap(rec, prec, use_07_metric=False):
     """
@@ -94,13 +116,13 @@ def voc_ap(rec, prec, use_07_metric=False):
 
 
 def voc_eval(
-    detpath,
-    annopath,
-    imagesetfile,
-    classname,
-    cachedir,
-    ovthresh=0.5,
-    use_07_metric=False,
+        detpath,
+        annopath,
+        imagesetfile,
+        classname,
+        cachedir,
+        ovthresh=0.5,
+        use_07_metric=False,
 ):
     # first load gt
     if not os.path.isdir(cachedir):
@@ -115,7 +137,7 @@ def voc_eval(
         # load annots
         recs = {}
         for i, imagename in enumerate(imagenames):
-            recs[imagename] = parse_rec2(annopath.format(imagename))
+            recs[imagename] = parse_rec3(annopath.format(imagename))
             if i % 100 == 0:
                 print(f"Reading annotation for {i + 1}/{len(imagenames)}")
         # save
@@ -179,8 +201,8 @@ def voc_eval(
 
             # union
             uni = (
-                (bb[2] - bb[0] + 1.0) * (bb[3] - bb[1] + 1.0)
-                + (BBGT[:, 2] - BBGT[:, 0] + 1.0) * (BBGT[:, 3] - BBGT[:, 1] + 1.0) - inters
+                    (bb[2] - bb[0] + 1.0) * (bb[3] - bb[1] + 1.0)
+                    + (BBGT[:, 2] - BBGT[:, 0] + 1.0) * (BBGT[:, 3] - BBGT[:, 1] + 1.0) - inters
             )
 
             overlaps = inters / uni
@@ -206,7 +228,7 @@ def voc_eval(
     prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
     ap = voc_ap(rec, prec, use_07_metric)
 
-    f1 = 2 * prec * rec / (prec + rec + 1e-16)    # 计算不同置信度下的f1分数
+    f1 = 2 * prec * rec / (prec + rec + 1e-16)  # 计算不同置信度下的f1分数
     max_index = f1.argmax()  # 返回f1分数最大时的索引
     # 增加了在当前IOU下各类别的f1分数和recall和precision
     return rec, prec, ap, f1[max_index], rec[max_index], prec[max_index]

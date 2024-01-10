@@ -38,7 +38,7 @@ class VOCEvaluator:
         self.num_classes = num_classes
         self.num_images = len(dataloader.dataset)
 
-    def evaluate(
+    def evaluate_gpu(
         self, model, distributed=False, half=False, trt_file=None,
         decoder=None, test_size=None, return_outputs=False,
     ):

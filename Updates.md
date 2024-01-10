@@ -39,7 +39,12 @@ parse_rec处修改xml文件的加载路径
     	continue
 ```
 
-5. val修改
+5. voc.py
+```python
+AnnotationTransform下的call方法，需要修改类别
+```
+
+7. val修改
 
 ```python
 1.增加iou0.1到0.5的评估

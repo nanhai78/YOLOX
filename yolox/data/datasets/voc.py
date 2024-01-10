@@ -49,30 +49,33 @@ class AnnotationTransform(object):
             a list containing lists of bounding boxes  [bbox coords, class name]
         """
         res = np.empty((0, 5))
-        for obj in target.iter("object"):
-            name = obj.find("name").text.strip()
-            if name not in VOC_CLASSES:
-                continue
-            difficult = obj.find("difficult")
-            if difficult is not None:
-                difficult = int(difficult.text) == 1
-            else:
-                difficult = False
-            if not self.keep_difficult and difficult:
-                continue
+        for root in target.iter("object"):
+            child = root.find('others')
+            for obj in child.findall("others"):
+                # name = obj.find("name").text.strip()
+                # if name not in VOC_CLASSES:
+                #     continue
+                name = 'others'
+                difficult = obj.find("difficult")
+                if difficult is not None:
+                    difficult = int(difficult.text) == 1
+                else:
+                    difficult = False
+                if not self.keep_difficult and difficult:
+                    continue
 
-            bbox = obj.find("bndbox")
+                bbox = obj.find("bndbox")
 
-            pts = ["xmin", "ymin", "xmax", "ymax"]
-            bndbox = []
-            for i, pt in enumerate(pts):
-                cur_pt = int(float(bbox.find(pt).text)) - 1
-                # scale height or width
-                # cur_pt = cur_pt / width if i % 2 == 0 else cur_pt / height
-                bndbox.append(cur_pt)
-            label_idx = self.class_to_ind[name]
-            bndbox.append(label_idx)
-            res = np.vstack((res, bndbox))  # [xmin, ymin, xmax, ymax, label_ind]
+                pts = ["xmin", "ymin", "xmax", "ymax"]
+                bndbox = []
+                for i, pt in enumerate(pts):
+                    cur_pt = int(float(bbox.find(pt).text)) - 1
+                    # scale height or width
+                    # cur_pt = cur_pt / width if i % 2 == 0 else cur_pt / height
+                    bndbox.append(cur_pt)
+                label_idx = self.class_to_ind[name]
+                bndbox.append(label_idx)
+                res = np.vstack((res, bndbox))  # [xmin, ymin, xmax, ymax, label_ind]
             # img_id = target.find('filename').text[:-4]
 
         width = int(target.find("size").find("width").text)
@@ -164,6 +167,7 @@ class VOCDetection(CacheDataset):
         assert self.target_transform is not None
         res, img_info = self.target_transform(target)
         height, width = img_info
+
 
         r = min(self.img_size[0] / height, self.img_size[1] / width)
         res[:, :4] *= r

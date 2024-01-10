@@ -166,7 +166,7 @@ def voc_eval(
         lines = f.readlines()
 
     if len(lines) == 0:
-        return 0, 0, 0
+        return 0, 0, 0, 0, 0, 0
 
     splitlines = [x.strip().split(" ") for x in lines]
     image_ids = [x[0] for x in splitlines]

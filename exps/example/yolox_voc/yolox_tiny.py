@@ -18,6 +18,8 @@ class Exp(MyExp):
         self.mixup_prob = 0
         self.hsv_prob = 1.0
         self.flip_prob = 0.5
+        self.input_size = (1024, 512)
+        self.test_size = (1024, 512)
 
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
 

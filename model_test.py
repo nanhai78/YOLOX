@@ -22,7 +22,7 @@ model = model.eval()
 model = model.to(device)
 model = fuse_model(model)
 
-input_shape = [416, 416]
+input_shape = [1024, 512]
 dummy_input = torch.randn(1, 3, input_shape[0], input_shape[1]).to(device)
 flops, params = profile(model, (dummy_input,), verbose=False)
 flops = flops * 2

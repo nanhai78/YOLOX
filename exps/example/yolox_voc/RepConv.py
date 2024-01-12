@@ -263,7 +263,7 @@ class Exp(MyExp):
             preproc=ValTransform(legacy=legacy),
         )
 
-    def get_evaluator(self, batch_size, is_distributed, testdev=False, legacy=False):
+    def get_evaluator(self, batch_size, is_distributed, testdev=False, legacy=False, device='gpu'):
         from yolox.evaluators import VOCEvaluator
 
         return VOCEvaluator(

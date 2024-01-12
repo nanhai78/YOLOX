@@ -181,7 +181,7 @@ class VOCEvaluator:
                 if is_time_record:
                     nms_end = time_synchronized()
                     nms_time += nms_end - infer_end
-            if cur_iter == 1000 and self.device == 'cpu':
+            if cur_iter == 1000:
                 a_infer_time = 1000 * inference_time / (3000 * self.dataloader.batch_size)
                 a_nms_time = 1000 * nms_time / (3000 * self.dataloader.batch_size)
                 print("Average forward time: {:.2f} ms".format(a_infer_time))

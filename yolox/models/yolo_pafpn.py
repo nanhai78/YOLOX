@@ -68,17 +68,17 @@ class YOLOPAFPN(nn.Module):
         )
 
         # bottom-up conv
-        self.bu_conv1 = Conv(
-            int(in_channels[1] * width), int(in_channels[1] * width), 3, 2, act=act
-        )
-        self.C3_n4 = CSPLayer(
-            int(2 * in_channels[1] * width),
-            int(in_channels[2] * width),
-            round(3 * depth),
-            False,
-            depthwise=depthwise,
-            act=act,
-        )
+        # self.bu_conv1 = Conv(
+        #     int(in_channels[1] * width), int(in_channels[1] * width), 3, 2, act=act
+        # )
+        # self.C3_n4 = CSPLayer(
+        #     int(2 * in_channels[1] * width),
+        #     int(in_channels[2] * width),
+        #     round(3 * depth),
+        #     False,
+        #     depthwise=depthwise,
+        #     act=act,
+        # )
 
     def forward(self, input):
         """
@@ -108,9 +108,10 @@ class YOLOPAFPN(nn.Module):
         p_out1 = torch.cat([p_out1, fpn_out1], 1)  # 256->512/16
         pan_out1 = self.C3_n3(p_out1)  # 512->512/16
 
-        p_out0 = self.bu_conv1(pan_out1)  # 512->512/32
-        p_out0 = torch.cat([p_out0, fpn_out0], 1)  # 512->1024/32
-        pan_out0 = self.C3_n4(p_out0)  # 1024->1024/32
+        # p_out0 = self.bu_conv1(pan_out1)  # 512->512/32
+        # p_out0 = torch.cat([p_out0, fpn_out0], 1)  # 512->1024/32
+        # pan_out0 = self.C3_n4(p_out0)  # 1024->1024/32
 
-        outputs = (pan_out2, pan_out1, pan_out0)
+        # outputs = (pan_out2, pan_out1, pan_out0)
+        outputs = (pan_out2, pan_out1)
         return outputs
